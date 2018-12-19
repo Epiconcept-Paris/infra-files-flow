@@ -1,6 +1,3 @@
-CdC flux de fichiers
-####################
-
 Vocabulaire
 ===========
 
