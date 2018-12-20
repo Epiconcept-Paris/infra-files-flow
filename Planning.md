@@ -29,7 +29,7 @@ Workflow
 * optionnellement (ce n'est pas le cas de tous les flux), le script peut fournir un fichier d'acquitement qui doit être renvoyé en retour
 
   * il le dépose dans un dossier 'out', ou le fournit à un script pour traitement immédiat
-  * ce fichier doit in fine être déposé dans un dossier 'out'
+  * ce fichier doit in fine être déposé dans un dossier 'out' sur le serveur de fichiers
 
 Contraintes
 ===========
