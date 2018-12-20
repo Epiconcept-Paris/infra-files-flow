@@ -47,6 +47,7 @@ Contraintes
 * archivage des fichiers une fois traités
 * possibilité de relancer le traitement sur des fichiers qui n'auraient pas été traités dans le flux (genre serveur éteint ou injoignable), via cron ou manuellement (pour inotify, un touch sur les fichiers non traités suffirait)
 * possibilité de lister les fichiers en attente de traitement, sur le serveur de fichiers ou sur le serveur de traitement (s'ils ne sont plus des fichiers sur disque, auquel cas ls suffit)
+* un seul utilisateur unix (correspondant à un projet) peut avoir plusieurs flux entrants et resortants, il faut donc identifier le flux dans le transfert.
 
 Livrable
 ========
