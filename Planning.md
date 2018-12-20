@@ -53,3 +53,4 @@ Livrable
 
 * ensemble de script et configuration, avec procédure manuelle de déploiement (la partie Ansible sera faite par Epiconcept)
 * documentation sur l'usage normal et la récupération de fonctionnement en manuel
+* documentation technique (choix, logiciels, etc...) 
