@@ -48,7 +48,7 @@ Contraintes
 * possibilité de relancer le traitement sur des fichiers qui n'auraient pas été traités dans le flux (genre serveur éteint ou injoignable), via cron ou manuellement (pour inotify, un touch sur les fichiers non traités suffirait)
 * possibilité de lister les fichiers en attente de traitement, sur le serveur de fichiers ou sur le serveur de traitement (s'ils ne sont plus des fichiers sur disque, auquel cas ls suffit)
 * un seul utilisateur unix (correspondant à un projet) peut avoir plusieurs flux entrants et resortants, il faut donc identifier le flux dans le transfert.
-* intégrer une vérification sur la nature du fichier : juste prévoir d'appeler un script en lui passant le fichier fraichement arrivé, et si le script répond autre chose que 0, mettre le fichier en quarantaine
+* intégrer une vérification sur la nature du fichier en entrée : juste prévoir d'appeler un script en lui passant le fichier fraichement arrivé, et si le script répond autre chose que 0, mettre le fichier en quarantaine dans un dossier spécifique qu'il suffira de surveiller pour signaler les problèmes. On verra ensuite à l'usage si un simple file suffit ou s'il faut aller plus loin.
 
 Livrable
 ========
