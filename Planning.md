@@ -29,7 +29,7 @@ Workflow
 * optionnellement (ce n'est pas le cas de tous les flux), le script peut fournir un fichier d'acquitement qui doit être renvoyé en retour
 
   * il le dépose dans un dossier 'out', ou le fournit à un script pour traitement immédiat
-  * ce fichier doit in fine être déposé dans un dossier 'out'
+  * ce fichier doit in fine être déposé dans un dossier 'out' sur le serveur de fichiers
 
 Contraintes
 ===========
@@ -48,6 +48,8 @@ Contraintes
 * possibilité de relancer le traitement sur des fichiers qui n'auraient pas été traités dans le flux (genre serveur éteint ou injoignable), via cron ou manuellement (pour inotify, un touch sur les fichiers non traités suffirait)
 * possibilité de lister les fichiers en attente de traitement, sur le serveur de fichiers ou sur le serveur de traitement (s'ils ne sont plus des fichiers sur disque, auquel cas ls suffit)
 * fonctionnement sur Debian Jessie et Stretch
+* un seul utilisateur unix (correspondant à un projet) peut avoir plusieurs flux entrants et resortants, il faut donc identifier le flux dans le transfert.
+* intégrer une vérification sur la nature du fichier en entrée : juste prévoir d'appeler un script en lui passant le fichier fraichement arrivé, et si le script répond autre chose que 0, mettre le fichier en quarantaine dans un dossier spécifique qu'il suffira de surveiller pour signaler les problèmes. On verra ensuite à l'usage si un simple file suffit ou s'il faut aller plus loin.
 
 Livrable
 ========
@@ -55,3 +57,4 @@ Livrable
 * ensemble de script et configuration, avec procédure manuelle de déploiement (la partie Ansible sera faite par Epiconcept)
 * documentation sur l'usage normal et la récupération de fonctionnement en manuel
 * procédure de test sur un grand nombre de fichiers (éventuellement à définir ensemble)
+* documentation technique (choix, logiciels, etc...) 
