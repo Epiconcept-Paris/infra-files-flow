@@ -47,9 +47,11 @@ Contraintes
 * archivage des fichiers une fois traités
 * possibilité de relancer le traitement sur des fichiers qui n'auraient pas été traités dans le flux (genre serveur éteint ou injoignable), via cron ou manuellement (pour inotify, un touch sur les fichiers non traités suffirait)
 * possibilité de lister les fichiers en attente de traitement, sur le serveur de fichiers ou sur le serveur de traitement (s'ils ne sont plus des fichiers sur disque, auquel cas ls suffit)
+* fonctionnement sur Debian Jessie et Stretch
 
 Livrable
 ========
 
 * ensemble de script et configuration, avec procédure manuelle de déploiement (la partie Ansible sera faite par Epiconcept)
 * documentation sur l'usage normal et la récupération de fonctionnement en manuel
+* procédure de test sur un grand nombre de fichiers (éventuellement à définir ensemble)
