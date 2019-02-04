@@ -1,0 +1,5 @@
+[Unit]
+Description=InDirD %i wakeup
+
+[Service]
+ExecStart=/usr/local/bin/indird %i wakeup

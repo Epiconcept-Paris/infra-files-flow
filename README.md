@@ -1,11 +1,40 @@
-# Proposed Indird config file
+# infra_files_flow
+Scripts de gestion de répertoires d'arrivée
+
+## Installation du prototype de script indird
+
+Il faut copier les fichiers aux emplacements suivants :
+````
+indird			/usr/local/bin
+indird.conf		/etc
+indird@.service		/etc/systemd/system
+indirdwake@.service	/etc/systemd/system
+indirdwake@.path	/etc/systemd/system
+````
+Après modification du fichier indird.conf, il faut lancer :
+````
+# systemctl enable indird@<tag>.service
+# systemctl enable indirdwake@<tag>.path
+
+# systemctl start indird@<tag>.service
+````
+et pour arrêter / désinstaller :
+
+````
+# systemctl stop indird@<tag>.service
+# systemctl disable indirdwake@<tag>.path
+# systemctl disable indird@<tag>.service
+
+````
+
+## Proposed Indird config file
 
 [indird.yml]: ./indird.yml "local file"
 
 As decided with CGD and CTY on 2019-01-09, here is some YAML configs examples
 to be used as `indird` daemon (as seen with CTY)
 
-The [indird.yml][] file contains three example config derived from
+The [indird.yml][] file contains three example configs derived from
 actual running file flow setups.
 
 Data structure and comments in [indird.yml][] gives a effective
@@ -27,7 +56,7 @@ curl -sL https://deb.nodesource.com/setup_6.x | sudo bash -
 sudo npm install -g yamljs
 ```
 
-# Proposed Indird pseudo code
+## Proposed Indird pseudo code
 
 My interpretation of the specs resulting from meeting with CGD and CTY
 

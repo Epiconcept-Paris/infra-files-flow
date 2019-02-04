@@ -2,16 +2,15 @@
 
 # extract real indird.yml confs using
 #
-# yaml2json indird.yml | jq .hosts.procom1.confs.sspdamoc # | json2yaml -
-# yaml2json indird.yml | jq .hosts.procom1.confs.sspnice 
-# yaml2json indird.yml | jq .hosts.profnt2.confs.sspnice 
+# yaml2json indird.yml | jq .hosts.procom1.confs >indird.json # -> procom1:/etc/indird.conf
+# yaml2json indird.yml | jq .hosts.profnt2.confs >indird.json # -> profnt2:/etc/indird.conf
 
 hosts:
   procom1:
     confs:
+      # real indird.yml for procom1 starts here
+      # each 'confs' member has it's own indird@.service instance
       sspdamoc:
-
-        # real indird.yml for sspdamoc on procom1 start here
 
         # required spool dir
         path: /home/sspdamoc/inbox
@@ -19,61 +18,66 @@ hosts:
         # required poll delay
         sleep: 60
 
-        # prefix for environment variables
-        # optional, default to INDIRD_
-        env_prefix: i_
-
         # optional sanity check
         host: procom1
 
-        # dict of environment variables
-        # implement variables for actions with environment
-        # optional
-        #
-        # environment variables set by daemon itself are in upper case
-        # ${env_prefix}PATH
-        # ${env_prefix}FILE
+        # optional prefix for environment variables
+        # defaults to INDIRD_
+        env_prefix: i_
+
+        # optional dict of environment variables for action commands
+        # environment variables set by daemon itself are in upper case:
+        #   ${env_prefix}PATH
+        #   ${env_prefix}FILE
+        #   ${env_prefix}STATUS
         env:
-          done: /home/sspdamoc/done
-          failed: /home/sspdamoc/failed
+          donedir: /home/sspdamoc/done
+          faildir: /home/sspdamoc/fail
           front: profnt2.front2
           user: sspdamoc
 
-        # dict of file patterns
-        # patterns to watch in spool dir
-        # required
-        files: &files
+        # required dict of filename patterns to watch for in spool dir
+        filenames: &filenames
           hl7:
-            # name is required and used in daemon error messages
-            name: hl7 files
-            type: regexp
-            args:
-              pattern: '^[a-z].*\.hl7$'
-          # exemple of possible extension
-          pdf:
-            name: pdf files
+            # required desc for use in daemon error messages
+            desc: hl7 files
             type: fileglob
             args:
-              pattern: '*.pdf'
+              pattern: '[a-z]*.hl7'
+          # example of possible extension
+          pdf:
+            desc: pdf files
+            type: regexp
+            args:
+              pattern: '.*\.pdf$'
 
-        # cmd triggered by actions exit status
+        # dict of cmds to implement actions
+        # error managed via return field
+        # required
+        actions:
+          copy:
+            desc: copy file to remote node
+            cmd: |
+              rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
+
+        # dict of commands triggered by actions exit status
         # error managed by daemon itself
         # similar to actions but must not appear in action field of rules
         # required if referenced by rules
         returns: &returns
           done:
-            name: mv file to archive dir
-            cmd: mv "$i_FILE" $i_done
+            desc: move file to archive dir
+            cmd: mv "$i_FILE" $i_donedir
             # actions and returns may ask chdir (default to spool dir)
             chdir:
             # actions and returns may change environment
             env:
               TMP: /space/tmp
-          failed:
-            name: mv file to fail dir
-            cmd: mv "$i_FILE" $i_failed
+          fail:
+            desc: move file to fail dir
+            cmd: mv "$i_FILE" $i_faildir
           mail:
-            name: send mail
+            desc: send mail
             cmd: mail -s "$i_FILE $i_STATUS" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
             # returns may use combined stdin and stdout of actions
             stdin: output # either stdout, stderr or output for combined stdout and stderr
@@ -89,87 +93,86 @@ hosts:
         # required if referenced by rules
         logs: &logs
           debug:
-            name: log to file
+            desc: log to file
             type: file
             args:
               path: /var/log/indird.log
           default:
-            name: log to syslog
+            desc: log to syslog
             type: syslog
             args:
               level: LOG_ERR
               facility: USER
 
-        # cmd to implement actions
-        # error managed via return field
-        # required
-        actions:
-          copy:
-            name: copy file to remote node
-            cmd: |
-              rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
-
-        # yaml kludge, recognized but ignored by daemon
+        # yaml kludge, recognized but discarded by daemon
         macros:
           - &hl7
             # generic hl7 copy rule
-            file: hl7             # a pattern from files dict
-            action: copy          # an action from actions dict
-            timeout: default      # a timeout from timeouts dict
+            filename: hl7       # a pattern from filenames dict
+            action: copy        # an action from actions dict
+            timeout: default    # a timeout from timeouts dict
             on_return:
-              ok: [ ok ]          # a list of cmds from returns dict if exit status OK
-              ko: [ failed, mail ] # a list of cmds from returns dict if exit status !OK
-            log_to: [ debug, default ] # a list of logs from logs dict
+              ok: [ ok ]                 # a list of cmds from returns dict if exit status OK
+              ko: [ fail, mail ]         # a list of cmds from returns dict if exit status !OK
+            log_to: [ debug, default ]   # a list of logs from logs dict
 
         # list of actions to trigger on spool dir files
-        # binds file, action, timeout or retry, on_return, log_to
+        # binds filename, action, timeout or retry, on_return, log_to
         rules:
-          - name: sspdamoc
+          - desc: sspdamoc instance
             <<: *hl7
 
-        # real indird.yml for sspdamoc on procom1 ends here
+        # config for sspdamoc instance on procom1 ends here
 
       sspnice:
-
-        env_prefix: i_
         path: /space/home/sspnice/hl7
         sleep: 60
 
+        env_prefix: i_
         env:
           home: /space/home/sspnice
-          done:  /space/home/sspnice/done
-          failed: /space/home/sspnice/failed
+          donedir:  /space/home/sspnice/done
+          faildir: /space/home/sspnice/fail
           front: profnt2.front2
           user: sspnice
 
-        files: *files
+        filenames: *filenames
         returns: *returns
         logs: *logs
 
         actions:
           copy:
-            name: copy file to front
-            cmd: sync -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:hl7
-            chdir: "$i_PATH"
+            desc: copy file to front
+            cmd: rsync -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:hl7
 
         rules:
-          - name: sspnice
+          - desc: sspnice instance
             <<: *hl7
+
+        # real indird.yml on procom1 ends here
 
   profnt2:
     confs:
       sspnice:
 
-        env_prefix: i_
         path: /space/applistmp/sspnice/hl7
         sleep: 60
 
+        env_prefix: i_
         env:
           script: /space/www/apps/ssp/ressources/hl7/import.php
 
-        files: *files
+        filenames: *filenames
         returns: *returns
         logs: *logs
+
+        actions:
+          check:
+            desc: check before run
+            cmd: file "$i_FILE" | grep ASCII
+          run:
+            desc: call php script
+            cmd: sudo -u www-data /usr/bin/php $i_script "$i_FILE"
 
         retries:
           default:
@@ -177,26 +180,18 @@ hosts:
             delay: 120
             timeout: 30
 
-        actions:
-          check:
-            name: check before run
-            cmd: file "$i_FILE" | grep ASCII
-          run:
-            name: call php script
-            cmd: sudo -u www-data /usr/bin/php $i_script "$i_FILE"
-
         rules:
-          - name: check_sspdamoc
-            file: hl7
+          - desc: check_sspdamoc
+            filename: hl7
             action: check
             on_return:
-              ko: [ failed, mail ]
+              ko: [ fail, mail ]
             log_to: [ debug, default ]
-          - name: run_sspdamoc
-            file: hl7
+          - desc: run_sspdamoc
+            filename: hl7
             action: run
             retry: default
             on_return:
               ok: [ ok ]
-              ko: [ failed, mail ]
+              ko: [ fail, mail ]
             log_to: [ debug, default ]

@@ -1,0 +1,179 @@
+#!/usr/bin/env bash
+#
+#	indird - Watch a directory for incoming files
+#
+#	requires packages: 
+#		python-yaml python-docopt for https://github.com/drbild/json2yaml.git
+#		jq
+
+# TODO: loop on files, syslog/log, reload
+
+Prg=`basename $0`
+ConfDir=/etc
+RunDir=/run
+LogDir=/var/log
+LogFile=$LogDir/$Prg.log
+Config=$ConfDir/$Prg.conf
+Stamp='%Y-%m-%d %H:%M:%S'
+
+#
+#------ Functions ------------------------------------------------------
+#
+LogErr()
+{
+    date "+$Stamp $1" >>$LogFile
+    test "$2" && exit $2
+}
+
+Usage()
+{
+    LogErr "Usage: $0 <dir-tag> [ wakeup ]" 1
+}
+
+#
+#   GetConf - Read configuration file for our instance (Tag)
+#
+GetConf()
+{
+    local cnf key sfx tags
+
+    if cnf=`grep -v '^[ 	]*#' $1 | sed -e 's/\\\\n/; /g' | jq -c -e ".$2"`; then
+	ParseConf "$cnf"
+	for key in path sleep
+	do
+	    test -v Conf[$key] || LogErr "$Prg: cannot find \"$key\" in $1" 2
+	done
+	EnvPfx="${Conf['env_prefix']:-INDIRD_}"
+	for sfx in ${Conf['env._keys']}	# May not exist
+	do
+	    key="env.$sfx"
+	    CmdEnv="$CmdEnv$EnvPfx$sfx=\"${Conf[$key]}\" "
+	done
+	CmdEnv="$CmdEnv${EnvPfx}PATH=\"${Conf['path']}\" "
+    else
+	tags=`grep -v '^[        ]*#' $1 | jq -r 'keys|join(" ")'`
+	LogErr "$Prg: \"$2\" tag not found in $1. Available tags: $tags" 2
+    fi
+}
+
+#
+#   ParseConf - Recursively parse JSON config data into Conf bash array
+#
+ParseConf()
+{
+    local JSON Path Key Val
+
+    JSON=`jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1"`
+    test "$2" && Path="$2."
+
+    while read -r Key Val
+    do
+        if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
+	    test "$Path$Key" = 'macros' && continue
+            Conf["$Path$Key._keys"]=`jq -r 'keys|map(tostring)|join(" ")' <<< "$Val"`
+            ParseConf "$Val" "$Path$Key"
+        else
+            Conf["$Path$Key"]="$Val"
+        fi
+    done <<< "$JSON"
+}
+
+SigUsr1()
+{
+    LogErr "Reloading $Config on SIGUSR1"
+    GetConf $Config $Tag
+    # TODO: does not work yet. Delete Conf ? Update fixed Vars ?
+}
+
+SigTerm()
+{
+    LogErr "Exiting on SIGTERM"
+    exit 0
+}
+
+#
+#------ Startup --------------------------------------------------------
+#
+#   We need a tag as our first argument
+#   so we can load and check our config
+#
+test "$1" || Usage
+Tag="$1"
+declare -A Conf
+GetConf $Config $Tag	# Check that tag exists and load config
+#
+#   Handle notify calls from our associated .path
+#
+if [ "$2" = 'wakeup' ]; then
+    eval `systemctl -p MainPID show $Prg@$Tag`
+    if [ 0$MainPID -gt 0 ]; then
+	LogErr "Waking up $Prg@$Tag (PID=$MainPID)"
+	kill `ps -ef | awk "\\$3==$MainPID && \\$8==\"sleep\"{print \\$2}"`
+    fi
+    exit 0
+elif [ "$2" = 'paths' ]; then
+    if tty >/dev/null; then
+	for key in "${!Conf[@]}"
+	do
+	    echo "${key}=\"${Conf[$key]}\""
+	done | sort
+    else
+	LogErr "Subcommand 'paths' is only for command-line mode" 2
+    fi
+    exit 0
+fi
+test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'paths'
+#echo "CmdEnv=\"$CmdEnv\""; exit 0
+#
+#   Load the rest of our base config
+#
+#
+#   Make sure our .path has its dir
+#   and notify systemd we are done with our init
+#
+mkdir -p $RunDir/$Prg
+Path="$RunDir/$Prg/${Tag}_path"
+test -e "$Path" || ln -s ${Conf['path']} $Path
+trap SigTerm TERM
+trap SigUsr1 USR1
+LogErr "Starting $Prg on ${Conf['path']} ================"
+LogErr "Default watch interval is ${Conf['sleep']}s"
+cd "${Conf['path']}"
+systemd-notify --ready
+
+LastMod=0
+
+#
+#------ Main loop ------------------------------------------------------
+#
+while :
+do
+    # wakeup on signal or wakeup from sleep and store last touch time of spool dir on first wakeup
+    # if dir untouched since last wakeup or if spool dir locked return
+    # protected by lock
+    #   while dir touched since last loop
+    #	loop on rules of conf
+    #	  loop on files of rules
+    #	    loop on actions of rules using timeout or retry option
+    #	      loop on on_return of action choosing fronm OK or KO
+    #	    loop on log_to of rules
+    #
+    Mod=`stat -c '%Y' "${Conf['path']}"`
+    if [ $Mod -gt $LastMod ]; then
+	for f in ${Conf['filenames.hl7.args.pattern']}
+	do
+	    test -f "$f" || continue
+	    LogErr "Processing ${Conf['path']}/$f"
+	    ThisEnv="$CmdEnv${EnvPfx}FILE=\"$f\""
+	    if sh -c "$ThisEnv; ${Conf['actions.copy.cmd']}"; then
+		sh -c "$ThisEnv; ${Conf['returns.done.cmd']}"
+	    else
+		sh -c "$ThisEnv; ${Conf['returns.fail.cmd']}"
+	    fi
+	done
+	LastMod=`stat -c '%Y' "${Conf['path']}"`
+    fi
+    LogErr "Sleeping ${Conf['sleep']}s"
+    sleep ${Conf['sleep']} &
+    wait $!	# Trick to avoid stderr messages like Terminated
+done

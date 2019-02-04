@@ -1,0 +1,10 @@
+[Unit] 
+Description=InDirD %i wakeup
+Requires=indird@%i.service
+After=indird@%i.service
+
+[Path]
+DirectoryNotEmpty=/run/indird/%i_path
+
+[Install]
+WantedBy=multi-user.target

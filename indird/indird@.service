@@ -1,0 +1,13 @@
+[Unit]
+Description=InDirD %i path watch
+Requires=indirdwake@%i.path
+Before=indirdwake@%i.path
+
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/usr/local/bin/indird %i
+ExecReload=/bin/kill -USR1 $MAINPID
+
+[Install]
+WantedBy=multi-user.target
