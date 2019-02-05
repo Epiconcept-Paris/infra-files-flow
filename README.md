@@ -36,9 +36,9 @@ Le rechargement de configuration est géré :
 ```
 # systemctl reload indird@<tag>
 ```
-NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par indird
+NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par `indird`
 
-Le fichier de log est pour l'instant /var/log/indird.log et les fichiers de fonctionnement vont dans /run/indird (créé si nécessaire).
+Le fichier de log est pour l'instant `/var/log/indird.log` et les fichiers de fonctionnement vont dans `/run/indird` (créé si nécessaire).
 
 ## Proposed Indird config file (by TDE)
 
