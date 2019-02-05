@@ -42,14 +42,12 @@ hosts:
             # required desc for use in daemon error messages
             desc: hl7 files
             type: fileglob
-            args:
-              pattern: '[a-z]*.hl7'
+            pattern: '[a-z]*.hl7'
           # example of possible extension
           pdf:
             desc: pdf files
             type: regexp
-            args:
-              pattern: '.*\.pdf$'
+            pattern: '.*\.pdf$'
 
         # dict of cmds to implement actions
         # error managed via return field

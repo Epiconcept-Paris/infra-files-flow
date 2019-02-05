@@ -2,47 +2,63 @@
 #
 #	indird - Watch a directory for incoming files
 #
-#	requires packages: 
-#		python-yaml python-docopt for https://github.com/drbild/json2yaml.git
-#		jq
-
-# TODO: loop on files, syslog/log, reload
+#	requires package jq
+#	Yaml to JSON conversion may use	https://github.com/drbild/json2yaml.git
+#	    which uses packages python-yaml python-docopt
+#
+# TODO: syslog/log
 
 Prg=`basename $0`
-ConfDir=/etc
-RunDir=/run
-LogDir=/var/log
-LogFile=$LogDir/$Prg.log
-Config=$ConfDir/$Prg.conf
+Config=/etc/$Prg.conf
+LogFile=/var/log/$Prg.log
 Stamp='%Y-%m-%d %H:%M:%S'
+RunDir=/run
 
 #
 #------ Functions ------------------------------------------------------
 #
+# params <message>
+LogMsg()
+{
+    # global Stamp Logfile
+    date "+$Stamp $1" >>$LogFile
+}
+
+# params <message> <exit-code>
 LogErr()
 {
-    date "+$Stamp $1" >>$LogFile
-    test "$2" && exit $2
+    # global Prg
+    LogMsg "$Prg: $1"
+    exit $2
 }
 
 Usage()
 {
-    LogErr "Usage: $0 <dir-tag> [ wakeup ]" 1
+    LogMsg "Usage: $0 <dir-tag> [ wakeup ]"
+    exit 1
 }
 
 #
-#   GetConf - Read configuration file for our instance (Tag)
+#   Read configuration file for our instance (Tag)
 #
+# params <config-file> <tag> <rundir>
 GetConf()
 {
-    local cnf key sfx tags
+    # global Conf EnvPfx CmdEnv
+    local cnf key sfx path link tags
 
-    if cnf=`grep -v '^[ 	]*#' $1 | sed -e 's/\\\\n/; /g' | jq -c -e ".$2"`; then
+    # Full-line # comments are allowed, \n changed to ;
+    if cnf=`sed -e '/^[ 	]*#/d' -e 's/\\\\n/; /g' $1 | jq -c -e ".$2"`; then
 	ParseConf "$cnf"
-	for key in path sleep
+	# Check for required paths
+	for key in 'path' 'sleep' 'filenames.hl7.pattern' 'actions.copy.cmd' \
+		   'returns.done.cmd' 'returns.fail.cmd'
 	do
-	    test -v Conf[$key] || LogErr "$Prg: cannot find \"$key\" in $1" 2
+	    test -v Conf[$key] || LogErr "cannot find \"$key\" in $1" 2
 	done
+	# Make sure that ${Conf['path']} exists
+	test -d "${Conf['path']}" || LogErr "directory '${Conf['path']}' does not exist" 3
+	# Build environment
 	EnvPfx="${Conf['env_prefix']:-INDIRD_}"
 	for sfx in ${Conf['env._keys']}	# May not exist
 	do
@@ -50,17 +66,32 @@ GetConf()
 	    CmdEnv="$CmdEnv$EnvPfx$sfx=\"${Conf[$key]}\" "
 	done
 	CmdEnv="$CmdEnv${EnvPfx}PATH=\"${Conf['path']}\" "
+	# Make sure our .path has its dir
+	mkdir -p $3
+	path="$3/${2}_path"
+	if [ -e "$path" -o -L "$path" ]; then
+	    link=`readlink "$path"`
+	    #echo "path='$path' link='$link' conf='${Conf['path']}'"
+	    if [ "$link" != "${Conf['path']}" ]; then
+		LogMsg "Removing previous '$path' link to '$link'"
+		rm -f "$path"
+	    fi
+	fi
+	test -e "$path" || ln -s "${Conf['path']}" "$path"
     else
-	tags=`grep -v '^[        ]*#' $1 | jq -r 'keys|join(" ")'`
-	LogErr "$Prg: \"$2\" tag not found in $1. Available tags: $tags" 2
+	# if not found, list available tags
+	tags=`sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")'`
+	LogErr "\"$2\" tag not found in $1. Available tags: $tags" 2
     fi
 }
 
 #
-#   ParseConf - Recursively parse JSON config data into Conf bash array
+#   Recursively parse JSON config data into Conf bash array
 #
+# params <JSON-obj> [ <obj-path> ]
 ParseConf()
 {
+    # global Conf
     local JSON Path Key Val
 
     JSON=`jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1"`
@@ -69,7 +100,7 @@ ParseConf()
     while read -r Key Val
     do
         if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
-	    test "$Path$Key" = 'macros' && continue
+	    test "$Path$Key" = 'macros' && continue	# Skip this yaml kludge
             Conf["$Path$Key._keys"]=`jq -r 'keys|map(tostring)|join(" ")' <<< "$Val"`
             ParseConf "$Val" "$Path$Key"
         else
@@ -78,16 +109,63 @@ ParseConf()
     done <<< "$JSON"
 }
 
+#
+#   Wakeup main process by killing its sleep command (if running)
+#
+# params <instance>
+WakeupMain()
+{
+    local MainPID pid
+
+    eval `systemctl -p MainPID show $1`
+    if [ 0$MainPID -gt 0 ]; then
+	pid=`ps -ef | awk "\\$3==$MainPID && \\$8==\"sleep\"{print \\$2}"`
+	if [ "$pid" ]; then
+	    LogMsg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
+	    kill $pid
+	else
+	    LogMsg "No need to wakeup $1 (Main PID=$MainPID), already active"
+	fi
+    else
+	LogMsg "Instance $1 is not running ?"
+    fi
+}
+
+#
+#   Output all JSON paths declared in the config file
+#   (NOTE that these 'paths' are conceptually unrelated to ${Conf['path']})
+#   
+ConfigPaths()
+{
+    # global Conf
+    local key
+
+    for key in "${!Conf[@]}"
+    do
+	echo "${key}=\"${Conf[$key]}\""
+    done | sort
+}
+
 SigUsr1()
 {
-    LogErr "Reloading $Config on SIGUSR1"
-    GetConf $Config $Tag
-    # TODO: does not work yet. Delete Conf ? Update fixed Vars ?
+    # global Config Conf Tag RunDir Prg
+    LogMsg "Reloading $Config on SIGUSR1"
+
+    # We need to delete the old Conf, but we cannot use unset
+    # as we would then need to do a declare -A Conf, which
+    # cannot work here as it needs to be global.
+    # So instead we delete all keys in Conf
+    for key in "${!Conf[@]}"
+    do
+	unset Conf[$key]
+    done
+    # Then re-read the config
+    GetConf $Config $Tag $RunDir/$Prg
 }
 
 SigTerm()
 {
-    LogErr "Exiting on SIGTERM"
+    LogMsg "Exiting on SIGTERM"
     exit 0
 }
 
@@ -100,52 +178,33 @@ SigTerm()
 test "$1" || Usage
 Tag="$1"
 declare -A Conf
-GetConf $Config $Tag	# Check that tag exists and load config
-#
-#   Handle notify calls from our associated .path
-#
-if [ "$2" = 'wakeup' ]; then
-    eval `systemctl -p MainPID show $Prg@$Tag`
-    if [ 0$MainPID -gt 0 ]; then
-	LogErr "Waking up $Prg@$Tag (PID=$MainPID)"
-	kill `ps -ef | awk "\\$3==$MainPID && \\$8==\"sleep\"{print \\$2}"`
-    fi
-    exit 0
-elif [ "$2" = 'paths' ]; then
-    if tty >/dev/null; then
-	for key in "${!Conf[@]}"
-	do
-	    echo "${key}=\"${Conf[$key]}\""
-	done | sort
-    else
-	LogErr "Subcommand 'paths' is only for command-line mode" 2
-    fi
-    exit 0
-fi
-test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'paths'
+GetConf $Config $Tag "$RunDir/$Prg"	# Check that tag exists and load config
 #echo "CmdEnv=\"$CmdEnv\""; exit 0
 #
-#   Load the rest of our base config
+#   Handle wakeup calls from our associated .path, and paths utility
 #
+if [ "$2" = 'wakeup' ]; then
+    WakeupMain "$Prg@$Tag"
+    exit 0
+elif [ "$2" = 'config' ]; then
+    tty >/dev/null && ConfigPaths || LogErr "'config' subcommand is for command-line mode only" 2
+    exit 0
+fi
+test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'config'
 #
-#   Make sure our .path has its dir
-#   and notify systemd we are done with our init
+#   Trap signals and notify systemd we are done with our init
 #
-mkdir -p $RunDir/$Prg
-Path="$RunDir/$Prg/${Tag}_path"
-test -e "$Path" || ln -s ${Conf['path']} $Path
 trap SigTerm TERM
 trap SigUsr1 USR1
-LogErr "Starting $Prg on ${Conf['path']} ================"
-LogErr "Default watch interval is ${Conf['sleep']}s"
+LogMsg "Starting $Prg on ${Conf['path']} ================"
+LogMsg "Default watch interval is ${Conf['sleep']}s"
 cd "${Conf['path']}"
 systemd-notify --ready
-
-LastMod=0
 
 #
 #------ Main loop ------------------------------------------------------
 #
+LastMod=0
 while :
 do
     # wakeup on signal or wakeup from sleep and store last touch time of spool dir on first wakeup
@@ -159,21 +218,28 @@ do
     #	    loop on log_to of rules
     #
     Mod=`stat -c '%Y' "${Conf['path']}"`
-    if [ $Mod -gt $LastMod ]; then
-	for f in ${Conf['filenames.hl7.args.pattern']}
+    while [ $Mod -gt $LastMod ]
+    do
+	Nb=0
+	LastMod=$Mod
+	LogMsg "Examining ${Conf['path']}..."
+	for f in ${Conf['filenames.hl7.pattern']}
 	do
 	    test -f "$f" || continue
-	    LogErr "Processing ${Conf['path']}/$f"
+	    LogMsg "Processing ${Conf['path']}/$f"
 	    ThisEnv="$CmdEnv${EnvPfx}FILE=\"$f\""
 	    if sh -c "$ThisEnv; ${Conf['actions.copy.cmd']}"; then
 		sh -c "$ThisEnv; ${Conf['returns.done.cmd']}"
 	    else
 		sh -c "$ThisEnv; ${Conf['returns.fail.cmd']}"
 	    fi
+	    Nb=$((Nb + 1))
 	done
-	LastMod=`stat -c '%Y' "${Conf['path']}"`
-    fi
-    LogErr "Sleeping ${Conf['sleep']}s"
+	LogMsg "Processed $Nb file(s)"
+	test $Nb -eq 0 && break		# No file found, abort inner loop
+	Mod=`stat -c '%Y' "${Conf['path']}"`
+    done
+    LogMsg "Sleeping ${Conf['sleep']}s"
     sleep ${Conf['sleep']} &
     wait $!	# Trick to avoid stderr messages like Terminated
 done

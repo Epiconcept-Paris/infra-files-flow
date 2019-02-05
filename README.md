@@ -1,44 +1,57 @@
 # infra_files_flow
-Scripts de gestion de répertoires d'arrivée
+Configuration systemd et script de gestion de répertoires d'arrivée
 
 ## Installation du prototype de script indird
 
 Il faut copier les fichiers aux emplacements suivants :
-````
+```
 indird			/usr/local/bin
 indird.conf		/etc
 indird@.service		/etc/systemd/system
 indirdwake@.service	/etc/systemd/system
 indirdwake@.path	/etc/systemd/system
-````
+```
 Après modification du fichier indird.conf, il faut lancer :
-````
+```
 # systemctl enable indird@<tag>.service
 # systemctl enable indirdwake@<tag>.path
 
 # systemctl start indird@<tag>.service
-````
+```
 et pour arrêter / désinstaller :
 
-````
+```
 # systemctl stop indird@<tag>.service
+
 # systemctl disable indirdwake@<tag>.path
 # systemctl disable indird@<tag>.service
 
-````
+```
+Pour obtenir le status :
+```
+# systemctl status indird@<tag>
+# systemctl status indirdwake@<tag>.path
+```
+Le rechargement de configuration est géré :
+```
+# systemctl reload indird@<tag>
+```
+NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par indird
 
-## Proposed Indird config file
+Le fichier de log est pour l'instant /var/log/indird.log et les fichiers de fonctionnement vont dans /run/indird (créé si nécessaire).
+
+## Proposed Indird config file (by TDE)
 
 [indird.yml]: ./indird.yml "local file"
 
-As decided with CGD and CTY on 2019-01-09, here is some YAML configs examples
-to be used as `indird` daemon (as seen with CTY)
+As decided with CGD and CTY on 2019-01-09, here are some YAML config examples
+to be used by an `indird` daemon (as seen with CTY)
 
 The [indird.yml][] file contains three example configs derived from
-actual running file flow setups.
+actual running file-flow setups.
 
-Data structure and comments in [indird.yml][] gives a effective
-guideline for implementation of the daemon.
+Data structures and comments in [indird.yml][] give an effective
+guideline for the implementation of the daemon.
 
 You can extract these configs (and check the file correctness) by running
 
@@ -58,7 +71,7 @@ sudo npm install -g yamljs
 
 ## Proposed Indird pseudo code
 
-My interpretation of the specs resulting from meeting with CGD and CTY
+My (TDE) interpretation of the specs, resulting from meeting with CGD and CTY:
 
 ```
 # optionally could also wakeup from inotify

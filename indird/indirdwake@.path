@@ -1,5 +1,5 @@
 [Unit] 
-Description=InDirD %i wakeup
+Description=InDirD %i path wakeup
 Requires=indird@%i.service
 After=indird@%i.service
 
