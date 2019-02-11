@@ -6,13 +6,15 @@
 #	Yaml to JSON conversion may use	https://github.com/drbild/json2yaml.git
 #	    which uses packages python-yaml python-docopt
 #
-# TODO: syslog/log
+# TODO: out/err to tmpfile, implement rules
 
 Prg=`basename $0`
 Config=/etc/$Prg.conf
 LogFile=/var/log/$Prg.log
 Stamp='%Y-%m-%d %H:%M:%S'
 RunDir=/run
+
+exec 2>>$LogFile
 
 #
 #------ Functions ------------------------------------------------------
@@ -22,20 +24,47 @@ LogMsg()
 {
     # global Stamp Logfile
     date "+$Stamp $1" >>$LogFile
+    # TODO: Should we use 'daemon' facility instead of 'user' ?
+    test "$2" && logger -p user.$2 "$1"
+}
+
+# params none
+Usage()
+{
+    LogMsg "Usage: $0 <dir-tag> [ wakeup ]" 'crit'
+    exit 1
 }
 
 # params <message> <exit-code>
-LogErr()
+LogExit()
 {
     # global Prg
-    LogMsg "$Prg: $1"
+    LogMsg "$Prg: $1" 'err'
     exit $2
 }
 
-Usage()
+# params <message>
+LogWarn()
 {
-    LogMsg "Usage: $0 <dir-tag> [ wakeup ]"
-    exit 1
+    LogMsg "$1" 'warning'
+}
+
+# params <message>
+LogNote()
+{
+    LogMsg "$1" 'notice'
+}
+
+# params <message>
+LogInfo()
+{
+    LogMsg "$1" 'info'
+}
+
+# params <message>
+LogDbg()
+{
+    LogMsg "$1" # 'debug'
 }
 
 #
@@ -54,10 +83,10 @@ GetConf()
 	for key in 'path' 'sleep' 'filenames.hl7.pattern' 'actions.copy.cmd' \
 		   'returns.done.cmd' 'returns.fail.cmd'
 	do
-	    test -v Conf[$key] || LogErr "cannot find \"$key\" in $1" 2
+	    test -v Conf[$key] || LogExit "cannot find \"$key\" in $1" 2
 	done
 	# Make sure that ${Conf['path']} exists
-	test -d "${Conf['path']}" || LogErr "directory '${Conf['path']}' does not exist" 3
+	test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" 3
 	# Build environment
 	EnvPfx="${Conf['env_prefix']:-INDIRD_}"
 	for sfx in ${Conf['env._keys']}	# May not exist
@@ -73,7 +102,7 @@ GetConf()
 	    link=`readlink "$path"`
 	    #echo "path='$path' link='$link' conf='${Conf['path']}'"
 	    if [ "$link" != "${Conf['path']}" ]; then
-		LogMsg "Removing previous '$path' link to '$link'"
+		LogNote "Removing previous '$path' link to '$link'"
 		rm -f "$path"
 	    fi
 	fi
@@ -81,7 +110,7 @@ GetConf()
     else
 	# if not found, list available tags
 	tags=`sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")'`
-	LogErr "\"$2\" tag not found in $1. Available tags: $tags" 2
+	LogExit "\"$2\" tag not found in $1. Available tags: $tags" 2
     fi
 }
 
@@ -121,13 +150,13 @@ WakeupMain()
     if [ 0$MainPID -gt 0 ]; then
 	pid=`ps -ef | awk "\\$3==$MainPID && \\$8==\"sleep\"{print \\$2}"`
 	if [ "$pid" ]; then
-	    LogMsg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
+	    LogDbg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
 	    kill $pid
 	else
-	    LogMsg "No need to wakeup $1 (Main PID=$MainPID), already active"
+	    LogDbg "No need to wakeup $1 (Main PID=$MainPID), already active"
 	fi
     else
-	LogMsg "Instance $1 is not running ?"
+	LogWarn "Instance $1 is not running ?"
     fi
 }
 
@@ -149,7 +178,7 @@ ConfigPaths()
 SigUsr1()
 {
     # global Config Conf Tag RunDir Prg
-    LogMsg "Reloading $Config on SIGUSR1"
+    LogInfo "Reloading $Config on SIGUSR1"
 
     # We need to delete the old Conf, but we cannot use unset
     # as we would then need to do a declare -A Conf, which
@@ -165,7 +194,7 @@ SigUsr1()
 
 SigTerm()
 {
-    LogMsg "Exiting on SIGTERM"
+    LogInfo "Exiting on SIGTERM"
     exit 0
 }
 
@@ -187,7 +216,7 @@ if [ "$2" = 'wakeup' ]; then
     WakeupMain "$Prg@$Tag"
     exit 0
 elif [ "$2" = 'config' ]; then
-    tty >/dev/null && ConfigPaths || LogErr "'config' subcommand is for command-line mode only" 2
+    tty >/dev/null && ConfigPaths || LogExit "'config' subcommand is for command-line mode only" 2
     exit 0
 fi
 test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'config'
@@ -196,8 +225,8 @@ test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'config'
 #
 trap SigTerm TERM
 trap SigUsr1 USR1
-LogMsg "Starting $Prg on ${Conf['path']} ================"
-LogMsg "Default watch interval is ${Conf['sleep']}s"
+LogInfo "Starting $Prg on ${Conf['path']} ================"
+LogInfo "Default watch interval is ${Conf['sleep']}s"
 cd "${Conf['path']}"
 systemd-notify --ready
 
@@ -212,7 +241,7 @@ do
     # protected by lock
     #   while dir touched since last loop
     #	loop on rules of conf
-    #	  loop on files of rules
+    #	  loop on filenames of rules
     #	    loop on actions of rules using timeout or retry option
     #	      loop on on_return of action choosing fronm OK or KO
     #	    loop on log_to of rules
@@ -222,24 +251,26 @@ do
     do
 	Nb=0
 	LastMod=$Mod
-	LogMsg "Examining ${Conf['path']}..."
+	LogDbg "Examining ${Conf['path']}..."
 	for f in ${Conf['filenames.hl7.pattern']}
 	do
 	    test -f "$f" || continue
-	    LogMsg "Processing ${Conf['path']}/$f"
+	    LogDbg "Processing ${Conf['path']}/$f"
 	    ThisEnv="$CmdEnv${EnvPfx}FILE=\"$f\""
 	    if sh -c "$ThisEnv; ${Conf['actions.copy.cmd']}"; then
 		sh -c "$ThisEnv; ${Conf['returns.done.cmd']}"
+		LogInfo "$f processed succesfully"
 	    else
 		sh -c "$ThisEnv; ${Conf['returns.fail.cmd']}"
+		LogWarn "$f was NOT processed succesfully"
 	    fi
 	    Nb=$((Nb + 1))
 	done
-	LogMsg "Processed $Nb file(s)"
+	LogDbg "Processed $Nb file(s)"
 	test $Nb -eq 0 && break		# No file found, abort inner loop
 	Mod=`stat -c '%Y' "${Conf['path']}"`
     done
-    LogMsg "Sleeping ${Conf['sleep']}s"
+    LogDbg "Sleeping ${Conf['sleep']}s"
     sleep ${Conf['sleep']} &
     wait $!	# Trick to avoid stderr messages like Terminated
 done

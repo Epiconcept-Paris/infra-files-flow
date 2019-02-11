@@ -6,6 +6,7 @@ Before=indirdwake@%i.path
 [Service]
 Type=notify
 NotifyAccess=all
+RuntimeDirectory=/run/indird
 ExecStart=/usr/local/bin/indird %i
 ExecReload=/bin/kill -USR1 $MAINPID
 
