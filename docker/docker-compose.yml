@@ -1,0 +1,16 @@
+version: '2'
+
+services:
+
+# only needed for development
+  serverfiles:
+    build: ../../build/serversssh
+    image: mysql-dev:v0
+    container_name: mysql
+    command: --sql-mode=""
+    ports:
+      - 3307:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql:/var/lib/mysql:rw
