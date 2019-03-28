@@ -1,6 +1,10 @@
 # infra_files_flow
 Configuration systemd et script de gestion de répertoires d'arrivée
 
+## TODO
+
+* shell limité (cf select login, shell, server from usersunix where login in ('esis-data-pre', 'esis-data-pro', 'sspnice', 'sspdamoc'); sur Work)
+
 ## Installation du prototype de script indird
 
 Il faut copier les fichiers aux emplacements suivants :
