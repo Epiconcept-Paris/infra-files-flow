@@ -148,7 +148,7 @@ hosts:
             <<: *hl7
 
       rdvradio:
-        path: /space/home/rdvradio/HL7_in
+        path: /space/home/rdvradio/HL7_spl
         sleep: 60
         env_prefix: i_
         env:
