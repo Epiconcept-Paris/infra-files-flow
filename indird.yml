@@ -2,8 +2,8 @@
 
 # extract real indird.yml confs using
 #
-# yaml2json indird.yml | jq .hosts.procom1.confs >indird.json # -> procom1:/etc/indird.conf
-# yaml2json indird.yml | jq .hosts.profnt2.confs >indird.json # -> profnt2:/etc/indird.conf
+# yaml2json indird.yml | jq .hosts.procom1.confs > indird.json # -> procom1:/etc/indird.conf
+# yaml2json indird.yml | jq .hosts.profnt2.confs > indird.json # -> profnt2:/etc/indird.conf
 
 hosts:
   procom1:
@@ -147,7 +147,59 @@ hosts:
           - desc: sspnice instance
             <<: *hl7
 
+      rdvradio:
+        path: /space/home/rdvradio/HL7_spl
+        sleep: 60
+        env_prefix: i_
+        env:
+          home: /space/home/rdvradio
+          front: profntd1.front2
+          user: esis-data-pro
+          remotedir: hl7/centre/in/cim-2745-CIM_Creteil_Soleil
+        filenames:
+          hl7:
+            desc: hl7 files
+            type: fileglob
+            pattern: 'CCR_*'
+        actions:
+          copy:
+            desc: copy file to front
+            cmd: rsync -a -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:$i_remotedir
+        returns:
+          done:
+            desc: move file to archive dir
+            cmd: mv "$i_FILE" $i_home/HL7_done
+          fail:
+            desc: move file to fail dir
+            cmd: mv "$i_FILE" $i_home/HL7_fail
+
         # real indird.yml on procom1 ends here
+
+  profntd1:
+    confs:
+      rdvradio:
+        path: /space/applistmp/budi/neoesis_prod/hl7/centre/in/cim-2745-CIM_Creteil_Soleil
+        sleep: 60
+        env_prefix: i_
+        env:
+          basedir: /space/applistmp/budi/neoesis_prod/hl7/centre
+          name: cim-2745-CIM_Creteil_Soleil
+        filenames:
+          hl7:
+            desc: hl7 files
+            type: fileglob
+            pattern: 'CCR_*'
+        actions:
+          copy:
+            desc: run task
+            cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
+        returns:
+          done:
+            desc: move file to archive dir
+            cmd: mv "$i_FILE" $i_basedir/done/$i_name
+          fail:
+            desc: move file to fail dir
+            cmd: mv "$i_FILE" $i_basedir/fail/$i_name
 
   profnt2:
     confs:
