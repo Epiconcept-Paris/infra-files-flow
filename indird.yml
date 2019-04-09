@@ -192,7 +192,8 @@ hosts:
         actions:
           copy:
             desc: run task
-            cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
+            cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE"
+            cmd_simulation: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
         returns:
           done:
             desc: move file to archive dir
