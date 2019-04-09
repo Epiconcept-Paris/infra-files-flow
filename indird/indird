@@ -236,10 +236,9 @@ systemd-notify --ready
 LastMod=0
 while :
 do
-    # wakeup on signal or wakeup from sleep and store last touch time of spool dir on first wakeup
-    # if dir untouched since last wakeup or if spool dir locked return
-    # protected by lock
-    #   while dir touched since last loop
+    # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
+    # while dir touched since last loop
+    #	TODO implement full conf handling :
     #	loop on rules of conf
     #	  loop on filenames of rules
     #	    loop on actions of rules using timeout or retry option
@@ -254,7 +253,7 @@ do
 	LogDbg "Examining ${Conf['path']}..."
 	for f in ${Conf['filenames.hl7.pattern']}
 	do
-	    test -f "$f" || continue
+	    test -f "$f" || continue	# Handle no match
 	    LogDbg "Processing ${Conf['path']}/$f"
 	    ThisEnv="$CmdEnv${EnvPfx}FILE=\"$f\""
 	    if sh -c "$ThisEnv; ${Conf['actions.copy.cmd']}"; then
@@ -267,7 +266,6 @@ do
 	    Nb=$((Nb + 1))
 	done
 	LogDbg "Processed $Nb file(s)"
-	test $Nb -eq 0 && break		# No file found, abort inner loop
 	Mod=`stat -c '%Y' "${Conf['path']}"`
     done
     LogDbg "Sleeping ${Conf['sleep']}s"
