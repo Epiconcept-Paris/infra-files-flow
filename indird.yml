@@ -163,6 +163,7 @@ hosts:
             # required desc for use in daemon error messages
             desc: hl7 files
             type: fileglob
+            # pattern: 'CCR_*'
             pattern: 'test-[a-z]*.hl7'
         actions:
           copy:
@@ -177,6 +178,32 @@ hosts:
             cmd: mv "$i_FILE" $i_faildir
 
         # real indird.yml on procom1 ends here
+
+  profntd1:
+    confs:
+      rdvradio:
+        path: /space/applistmp/budi/neoesis_prod/hl7/centre/in/cim-2745-CIM_Creteil_Soleil
+        sleep: 60
+        env_prefix: i_
+        env:
+          basedir: /space/applistmp/budi/neoesis_prod/hl7/centre
+          name: cim-2745-CIM_Creteil_Soleil
+        filenames:
+          hl7:
+            desc: hl7 files
+            type: fileglob
+            pattern: 'CCR_*'
+        actions:
+          copy:
+            desc: run task
+            cmd: sudo -u www-data /usr/local/bin/runTask production "$i_FILE" simulation
+        returns:
+          done:
+            desc: move file to archive dir
+            cmd: mv "$i_FILE" $i_basedir/done/$i_name
+          fail:
+            desc: move file to fail dir
+            cmd: mv "$i_FILE" $i_basedir/fail/$i_name
 
   profnt2:
     confs:
