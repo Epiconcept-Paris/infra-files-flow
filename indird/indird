@@ -9,20 +9,27 @@
 # TODO: out/err to tmpfile, implement rules
 
 Prg=`basename $0`
-Config=/etc/$Prg.conf
+IndPfx="`tr '[a-z]' '[A-Z]' <<< "$Prg"`_"
+eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"
 LogFile=/var/log/$Prg.log
 Stamp='%Y-%m-%d %H:%M:%S'
 RunDir=/run
+tty >/dev/null && isTty=y
+test `id -u` -eq 0 && isRoot=y
 
-exec 2>>$LogFile
+test -z "$isTty" -a "$isRoot" && exec 2>>$LogFile
 
 #
 #------ Functions ------------------------------------------------------
 #
-# params <message>
+# params <message> <logger-level>
 LogMsg()
 {
-    # global Stamp Logfile
+    # global isTty Stamp Logfile
+    if [ "$isTty" ]; then
+	echo "$1" >&2
+	return
+    fi
     date "+$Stamp $1" >>$LogFile
     # TODO: Should we use 'daemon' facility instead of 'user' ?
     test "$2" && logger -p user.$2 "$1"
@@ -31,7 +38,7 @@ LogMsg()
 # params none
 Usage()
 {
-    LogMsg "Usage: $0 <dir-tag> [ wakeup ]" 'crit'
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config ]" 'crit'
     exit 1
 }
 
@@ -68,9 +75,9 @@ LogDbg()
 }
 
 #
-#   Read configuration file for our instance (Tag)
+#   Read configuration file for our instance (<tag>)
 #
-# params <config-file> <tag> <rundir>
+# params <config-file> <tag> <rundir> [<arg2>]
 GetConf()
 {
     # global Conf EnvPfx CmdEnv
@@ -79,6 +86,8 @@ GetConf()
     # Full-line # comments are allowed, \n changed to ;
     if cnf=`sed -e '/^[ 	]*#/d' -e 's/\\\\n/; /g' $1 | jq -c -e ".$2"`; then
 	ParseConf "$cnf"
+
+	test "$4" = 'config' && return	# No checks for config
 	# Check for required paths
 	for key in 'path' 'sleep' 'filenames.hl7.pattern' 'actions.copy.cmd' \
 		   'returns.done.cmd' 'returns.fail.cmd'
@@ -88,7 +97,7 @@ GetConf()
 	# Make sure that ${Conf['path']} exists
 	test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" 3
 	# Build environment
-	EnvPfx="${Conf['env_prefix']:-INDIRD_}"
+	EnvPfx="${Conf['env_prefix']:-$IndPfx}"
 	for sfx in ${Conf['env._keys']}	# May not exist
 	do
 	    key="env.$sfx"
@@ -108,9 +117,9 @@ GetConf()
 	fi
 	test -e "$path" || ln -s "${Conf['path']}" "$path"
     else
-	# if not found, list available tags
+	# if tag unknown, list known tags
 	tags=`sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")'`
-	LogExit "\"$2\" tag not found in $1. Available tags: $tags" 2
+	LogExit "\"$2\" tag unknown in $1; known tags: $tags" 2
     fi
 }
 
@@ -207,16 +216,18 @@ SigTerm()
 test "$1" || Usage
 Tag="$1"
 declare -A Conf
-GetConf $Config $Tag "$RunDir/$Prg"	# Check that tag exists and load config
+GetConf $Config $Tag $RunDir/$Prg $2	# Check that tag exists and load config
 #echo "CmdEnv=\"$CmdEnv\""; exit 0
 #
 #   Handle wakeup calls from our associated .path, and paths utility
 #
+if [ "$2" = 'config' ]; then
+    test "$isTty" && ConfigPaths || LogExit "'$2' command is for command-line only" 2
+    exit 0
+fi
+test "$isRoot" || LogExit "must be run as root" 3
 if [ "$2" = 'wakeup' ]; then
     WakeupMain "$Prg@$Tag"
-    exit 0
-elif [ "$2" = 'config' ]; then
-    tty >/dev/null && ConfigPaths || LogExit "'config' subcommand is for command-line mode only" 2
     exit 0
 fi
 test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'config'
