@@ -29,7 +29,7 @@ hosts:
         # defaults to INDIRD_
         env_prefix: i_
 
-        # optional dict of environment variables for action / on_exit commands
+        # optional dict of environment variables for action / ends commands
         # environment variables set by the daemon itself are in upper case:
         #   ${env_prefix}HOST   name of host
         #   ${env_prefix}CONF   name of our instance
@@ -43,7 +43,7 @@ hosts:
           user: sspdamoc
 
         # --- Main dicts -----------------------------------------------
-        # There are 4 main dicts: filetypes, actions, on_exits, log_tos,
+        # There are 4 main dicts: filetypes, actions, ends, logs,
         # Their members can have any name but their structure is specific for each dict
         #
         # There is also a top-level 'rules' dict defined after our 4 main dicts
@@ -65,47 +65,47 @@ hosts:
 
         # actions - required dict of commands to implement actions
         #    structure: desc(opt), cmd(req), chdir(opt), env(opt)
-        # errors in cmd of actions are managed via the on_exit field in rules steps
+        # errors in cmd of actions are managed via the ends field in rules steps
         actions: &actions
           copy:
             desc: copy file to remote node
             cmd: |
               rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
 
-        # on_exits - dict of commands triggered by cmd exit status of actions
+        # ends - dict of commands triggered by cmd exit status of actions
         #    structure: desc, cmd, chdir(opt), env(opt), stdin(opt)
         # similar to actions but must not appear in the action field of rules steps
         # dict is required if any member is referenced within rules dict
-        # errors in cmd of on_exits are managed/logged by the daemon itself
-        on_exits: &on_exits
+        # errors in cmd of ends are managed/logged by the daemon itself
+        ends: &ends
           done:
-            # code string is a valid test(1) numeric cond to select the exit code
-            # an absent, empty or 'null' string will be taken as "always"
-            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_donedir
-            # actions and on_exits may ask chdir (default to spool dir)
+            # actions and ends may ask chdir (default to spool dir)
             chdir:
-            # actions and on_exits may change environment
+            # actions and ends may change environment
             env:
               TMP: /space/tmp
           fail:
-            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_faildir
           mail:
-            code: -ne 0
             desc: send mail
-            cmd: mail -s "$i_FILE exit=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
-            # on_exits may use combined stdout and stderr of actions
+            cmd: mail -s "$i_FILE stat=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
+            # ends may use combined stdout and stderr of actions
             stdin: output # either stdout, stderr or output for combined stdout and stderr
 
-        # log_tos - optional dict of log steps after an action 
+	tests:
+	   ok: test $i_CODE -eq 0
+	   ko: test $i_CODE -ne 0
+	   any: true
+
+        # logs - optional dict of log steps after an action 
         #    structure: desc(opt), type(req), args(req)
         #       args has a structure that depends on the value of type
         # dict is required if any member is referenced within rules dict
         # so far, only type 'file' and 'syslog' are handled
-        log_tos: &log_tos
+        logs: &logs
           debug:
             desc: log to file
             type: file
@@ -128,8 +128,8 @@ hosts:
         #       desc(opt) is an optional string description
         #       hide(opt) is an optional boolean: if true, this step is ignored
         #       action(req) is any name member of dict actions
-        #       on_exit(opt) is a list of members of the on_exits dict, in sequence
-        #       log_to(opt) is a list of members of the log_tos dict, in sequence
+        #       ends(opt) is a list of members of the ends dict, in sequence
+        #       log(opt) is a list of members of the logs dict, in sequence
         # Steps of a list are executed in sequence until an error occurs in action
         
         # yaml kludge, 'macros' is recognized and discarded by the daemon
@@ -137,8 +137,11 @@ hosts:
           - &hl7
             # generic hl7 copy rule
             action: copy                        # an action from the actions dict
-            on_exit: [ done, fail, mail ]       # a list of cmds from on_exits dict
-            log_to: [ debug, default ]          # a list of logs from log_tos dict
+            ends:
+	      - { cond: ok, end: done }
+	      - { cond: ko, end: fail }
+	      - { cond: any, end: mail }
+            log: [ debug, default ]          # a list of logs from logs dict
 
         rules:
           hl7:
@@ -160,8 +163,8 @@ hosts:
           user: sspnice
 
         filetypes: *filetypes
-        on_exits: *on_exits
-        log_tos: *log_tos
+        ends: *ends
+        logs: *logs
 
         actions:
           copy:
@@ -192,13 +195,11 @@ hosts:
           copy:
             desc: copy file to front
             cmd: rsync -a -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:$i_remotedir
-        on_exits:
+        ends:
           done:
-            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_home/HL7_done
           fail:
-            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_home/HL7_fail
         # config for rdvradio instance on procom1 ends here
@@ -223,7 +224,7 @@ hosts:
             desc: run task
             cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE"
             cmd_simulation: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
-        on_exits:
+        exits:
           done:
             code: -eq 0
             desc: move file to archive dir
@@ -246,8 +247,8 @@ hosts:
           script: /space/www/apps/ssp/ressources/hl7/import.php
 
         filetypes: *filetypes
-        on_exits: *on_exits
-        log_tos: *log_tos
+        exits: *exits
+        logs: *logs
 
         actions:
           check:
