@@ -4,6 +4,8 @@
 #
 # yaml2json indird.yml | jq .hosts.procom1.confs > indird.json # -> procom1:/etc/indird.conf
 # yaml2json indird.yml | jq .hosts.profnt2.confs > indird.json # -> profnt2:/etc/indird.conf
+#
+# NOTE: not all confs in this file are production-ready
 
 hosts:
   procom1:
@@ -43,7 +45,7 @@ hosts:
           user: sspdamoc
 
         # --- Main dicts -----------------------------------------------
-        # There are 4 main dicts: filetypes, actions, ends, logs,
+        # There are 5 main dicts: filetypes, actions, ends, logs and conds
         # Their members can have any name but their structure is specific for each dict
         #
         # There is also a top-level 'rules' dict defined after our 4 main dicts
@@ -93,12 +95,7 @@ hosts:
             desc: send mail
             cmd: mail -s "$i_FILE stat=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
             # ends may use combined stdout and stderr of actions
-            stdin: output # either stdout, stderr or output for combined stdout and stderr
-
-        tests:
-           ok: test $i_CODE -eq 0
-           ko: test $i_CODE -ne 0
-           any: true
+            stdin: output       # either stderr or output (for combined stdout and stderr)
 
         # logs - optional dict of log steps after an action 
         #    structure: desc(opt), type(req), args(req)
@@ -118,10 +115,18 @@ hosts:
               level: LOG_ERR
               facility: USER
 
+        # conds - dict of conditions for rules step ends
+        #       structure: member is the condition shell command
+        # dict is required if any member is referenced within rules dict
+        conds: &conds
+           ok: test $i_CODE -eq 0
+           ko: test $i_CODE -ne 0
+           any: true
+
         # --- Rules dict -----------------------------------------------
         #
-        # Top level dict to bind filetypes with lists of steps
-        #   to apply to spool dir files matching that filetype
+        # Top level dict to bind filetypes with lists-of-steps to
+        #   apply to spool-dir-files matching that filetype
         #
         # Each rules member must have the name of a member in filetypes
         #   stucture of a step:
@@ -137,11 +142,11 @@ hosts:
           - &hl7
             # generic hl7 copy rule
             action: copy                        # an action from the actions dict
-            ends:
-              - { cond: ok, end: done }
-              - { cond: ko, end: fail }
-              - { cond: any, end: mail }
-            log: [ debug, default ]          # a list of logs from logs dict
+            ends:                               # on cond from conds, run end from ends
+              - &done { cond: ok, end: done }
+              - &fail { cond: ko, end: fail }
+              - &mail { cond: ko, end: mail }
+            log: &log [ debug, default ]             # a list of logs from logs dict
 
         rules:
           hl7:
@@ -165,6 +170,7 @@ hosts:
         filetypes: *filetypes
         ends: *ends
         logs: *logs
+        conds: *conds
 
         actions:
           copy:
@@ -202,10 +208,14 @@ hosts:
           fail:
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_home/HL7_fail
+
+        logs: *logs
+        conds: *conds
+
         rules:
           hl7:
             - desc: rdvradio
-              <<: *hl7
+            # NOTE: to be completed
         # config for rdvradio instance on procom1 ends here
       # Actual indird.yml for procom1 ends here
 
@@ -228,15 +238,19 @@ hosts:
             desc: run task
             cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE"
             cmd_simulation: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
-        exits:
+        ends:
           done:
-            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_basedir/done/$i_name
           fail:
-            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_basedir/fail/$i_name
+        logs: *logs
+        conds: *conds
+        rules:
+          hl7:
+            - desc: rdvradio
+            # NOTE: to be completed
       # Actual indird.yml for profntd1 ends here
 
   profnt2:
@@ -251,8 +265,9 @@ hosts:
           script: /space/www/apps/ssp/ressources/hl7/import.php
 
         filetypes: *filetypes
-        exits: *exits
+        ends: *ends
         logs: *logs
+        conds: *conds
 
         actions:
           check:
@@ -266,17 +281,11 @@ hosts:
           hl7:
             - desc: check_sspdamoc
               action: check
-              ends:
-                - cond: OK
-                  end: done
-                - cond: KO
-                  end: fail
-                - cond: any
-                  end: mail
-              log: [ debug, default ]
+              # NOTE: add ends ?
+              log: *log
             - desc: run_sspdamoc
               action: run
-              ends: [ done, fail, mail ]
-              log: [ debug, default ]
+              # NOTE: add ends ?
+              log: *log
 
       # Actual indird.yml for profnt2 ends here
