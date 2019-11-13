@@ -1,6 +1,6 @@
 ---
 
-# extract real indird.yml confs using
+# Central (multi-host) indird config - Extract each host's indird.yml conf using (e.g.):
 #
 # yaml2json indird.yml | jq .hosts.procom1.confs > indird.json # -> procom1:/etc/indird.conf
 # yaml2json indird.yml | jq .hosts.profnt2.confs > indird.json # -> profnt2:/etc/indird.conf
@@ -8,88 +8,104 @@
 hosts:
   procom1:
     confs:
-      # real indird.yml for procom1 starts here
+      # Actual indird.yml for procom1 starts here
       # each 'confs' member has it's own indird@.service instance
       sspdamoc:
 
+        # --- Parameters -----------------------------------------------
+        #
         # required spool dir
         path: /home/sspdamoc/inbox
 
         # required poll delay
         sleep: 60
 
-        # optional sanity check
+        # optional sanity check (against hostname)
         host: procom1
 
+        # --- Optional environment--------------------------------------
+        #
         # optional prefix for environment variables
         # defaults to INDIRD_
         env_prefix: i_
 
-        # optional dict of environment variables for action commands
-        # environment variables set by daemon itself are in upper case:
-        #   ${env_prefix}PATH
-        #   ${env_prefix}FILE
-        #   ${env_prefix}STATUS
+        # optional dict of environment variables for action / on_exit commands
+        # environment variables set by the daemon itself are in upper case:
+        #   ${env_prefix}HOST   name of host
+        #   ${env_prefix}CONF   name of our instance
+        #   ${env_prefix}PATH   value of path above
+        #   ${env_prefix}FILE   name of file matched by filetype
+        #   ${env_prefix}CODE   exit code of previous action cmd
         env:
           donedir: /home/sspdamoc/done
           faildir: /home/sspdamoc/fail
           front: profnt2.front2
           user: sspdamoc
 
-        # required dict of filename patterns to watch for in spool dir
-        filenames: &filenames
+        # --- Main dicts -----------------------------------------------
+        # There are 4 main dicts: filetypes, actions, on_exits, log_tos,
+        # Their members can have any name but their structure is specific for each dict
+        #
+        # There is also a top-level 'rules' dict defined after our 4 main dicts
+        # (and mentionned in the comments)
+
+        # filetypes - required dict of filetype patterns to watch for in the spool dir
+        #   structure: desc, method, pattern (all required)
+        # so far, only method 'fileglob' and 'regexp' are handled
+        filetypes: &filetypes
           hl7:
-            # required desc for use in daemon error messages
+            # desc required for use in daemon error messages
             desc: hl7 files
-            type: fileglob
+            method: fileglob
             pattern: '[a-z]*.hl7'
-          # example of possible extension
           pdf:
             desc: pdf files
-            type: regexp
+            method: regexp
             pattern: '.*\.pdf$'
 
-        # dict of cmds to implement actions
-        # error managed via return field
-        # required
-        actions:
+        # actions - required dict of commands to implement actions
+        #    structure: desc(opt), cmd(req), chdir(opt), env(opt)
+        # errors in cmd of actions are managed via the on_exit field in rules steps
+        actions: &actions
           copy:
             desc: copy file to remote node
             cmd: |
               rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
 
-        # dict of commands triggered by actions exit status
-        # error managed by daemon itself
-        # similar to actions but must not appear in action field of rules
-        # required if referenced by rules
-        returns: &returns
+        # on_exits - dict of commands triggered by cmd exit status of actions
+        #    structure: desc, cmd, chdir(opt), env(opt), stdin(opt)
+        # similar to actions but must not appear in the action field of rules steps
+        # dict is required if any member is referenced within rules dict
+        # errors in cmd of on_exits are managed/logged by the daemon itself
+        on_exits: &on_exits
           done:
+            # code string is a valid test(1) numeric cond to select the exit code
+            # an absent, empty or 'null' string will be taken as "always"
+            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_donedir
-            # actions and returns may ask chdir (default to spool dir)
+            # actions and on_exits may ask chdir (default to spool dir)
             chdir:
-            # actions and returns may change environment
+            # actions and on_exits may change environment
             env:
               TMP: /space/tmp
           fail:
+            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_faildir
           mail:
+            code: -ne 0
             desc: send mail
-            cmd: mail -s "$i_FILE $i_STATUS" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
-            # returns may use combined stdin and stdout of actions
+            cmd: mail -s "$i_FILE exit=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
+            # on_exits may use combined stdout and stderr of actions
             stdin: output # either stdout, stderr or output for combined stdout and stderr
 
-        # timeout may wrap actions
-        # required if referenced by rules
-        timeouts: &timeouts
-          default:
-            wait: 30
-            retry: 4
-
-        # log may wrap actions
-        # required if referenced by rules
-        logs: &logs
+        # log_tos - optional dict of log steps after an action 
+        #    structure: desc(opt), type(req), args(req)
+        #       args has a structure that depends on the value of type
+        # dict is required if any member is referenced within rules dict
+        # so far, only type 'file' and 'syslog' are handled
+        log_tos: &log_tos
           debug:
             desc: log to file
             type: file
@@ -102,23 +118,32 @@ hosts:
               level: LOG_ERR
               facility: USER
 
-        # yaml kludge, recognized but discarded by daemon
+        # --- Rules dict -----------------------------------------------
+        #
+        # Top level dict to bind filetypes with lists of steps
+        #   to apply to spool dir files matching that filetype
+        #
+        # Each rules member must have the name of a member in filetypes
+        #   stucture of a step:
+        #       desc(opt) is an optional string description
+        #       hide(opt) is an optional boolean: if true, this step is ignored
+        #       action(req) is any name member of dict actions
+        #       on_exit(opt) is a list of members of the on_exits dict, in sequence
+        #       log_to(opt) is a list of members of the log_tos dict, in sequence
+        # Steps of a list are executed in sequence until an error occurs in action
+        
+        # yaml kludge, 'macros' is recognized and discarded by the daemon
         macros:
           - &hl7
             # generic hl7 copy rule
-            filename: hl7       # a pattern from filenames dict
-            action: copy        # an action from actions dict
-            timeout: default    # a timeout from timeouts dict
-            on_return:
-              ok: [ ok ]                 # a list of cmds from returns dict if exit status OK
-              ko: [ fail, mail ]         # a list of cmds from returns dict if exit status !OK
-            log_to: [ debug, default ]   # a list of logs from logs dict
+            action: copy                        # an action from the actions dict
+            on_exit: [ done, fail, mail ]       # a list of cmds from on_exits dict
+            log_to: [ debug, default ]          # a list of logs from log_tos dict
 
-        # list of actions to trigger on spool dir files
-        # binds filename, action, timeout or retry, on_return, log_to
         rules:
-          - desc: sspdamoc instance
-            <<: *hl7
+          hl7:
+            - desc: sspdamoc instance
+              <<: *hl7
 
         # config for sspdamoc instance on procom1 ends here
 
@@ -134,9 +159,9 @@ hosts:
           front: profnt2.front2
           user: sspnice
 
-        filenames: *filenames
-        returns: *returns
-        logs: *logs
+        filetypes: *filetypes
+        on_exits: *on_exits
+        log_tos: *log_tos
 
         actions:
           copy:
@@ -144,8 +169,10 @@ hosts:
             cmd: rsync -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:hl7
 
         rules:
-          - desc: sspnice instance
-            <<: *hl7
+          hl7:
+            - desc: sspnice instance
+              <<: *hl7
+        # config for sspnice instance on procom1 ends here
 
       rdvradio:
         path: /space/home/rdvradio/HL7_spl
@@ -156,24 +183,26 @@ hosts:
           front: profntd1.front2
           user: esis-data-pro
           remotedir: hl7/centre/in/cim-2745-CIM_Creteil_Soleil
-        filenames:
+        filetypes:
           hl7:
             desc: hl7 files
-            type: fileglob
+            method: fileglob
             pattern: 'CCR_*'
         actions:
           copy:
             desc: copy file to front
             cmd: rsync -a -e "ssh -i $i_home/.ssh/rsync -l $i_user" "$i_FILE" --whole-file --partial-dir ../tmp $i_front:$i_remotedir
-        returns:
+        on_exits:
           done:
+            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_home/HL7_done
           fail:
+            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_home/HL7_fail
-
-        # real indird.yml on procom1 ends here
+        # config for rdvradio instance on procom1 ends here
+      # Actual indird.yml for procom1 ends here
 
   profntd1:
     confs:
@@ -184,23 +213,26 @@ hosts:
         env:
           basedir: /space/applistmp/budi/neoesis_prod/hl7/centre
           name: cim-2745-CIM_Creteil_Soleil
-        filenames:
+        filetypes:
           hl7:
             desc: hl7 files
-            type: fileglob
+            method: fileglob
             pattern: 'CCR_*'
         actions:
           copy:
             desc: run task
             cmd: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE"
             cmd_simulation: sudo -u www-data /usr/local/bin/runTask production $i_basedir/in/$i_name/"$i_FILE" simulation
-        returns:
+        on_exits:
           done:
+            code: -eq 0
             desc: move file to archive dir
             cmd: mv "$i_FILE" $i_basedir/done/$i_name
           fail:
+            code: -ne 0
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_basedir/fail/$i_name
+      # Actual indird.yml for profntd1 ends here
 
   profnt2:
     confs:
@@ -213,9 +245,9 @@ hosts:
         env:
           script: /space/www/apps/ssp/ressources/hl7/import.php
 
-        filenames: *filenames
-        returns: *returns
-        logs: *logs
+        filetypes: *filetypes
+        on_exits: *on_exits
+        log_tos: *log_tos
 
         actions:
           check:
@@ -225,24 +257,15 @@ hosts:
             desc: call php script
             cmd: sudo -u www-data /usr/bin/php $i_script "$i_FILE"
 
-        retries:
-          default:
-            count: 3
-            delay: 120
-            timeout: 30
-
         rules:
-          - desc: check_sspdamoc
-            filename: hl7
-            action: check
-            on_return:
-              ko: [ fail, mail ]
-            log_to: [ debug, default ]
-          - desc: run_sspdamoc
-            filename: hl7
-            action: run
-            retry: default
-            on_return:
-              ok: [ ok ]
-              ko: [ fail, mail ]
-            log_to: [ debug, default ]
+          hl7:
+            - desc: check_sspdamoc
+              action: check
+              on_exit: [ fail, mail ]
+              log_to: [ debug, default ]
+            - desc: run_sspdamoc
+              action: run
+              on_exit: [ done, fail, mail ]
+              log_to: [ debug, default ]
+
+      # Actual indird.yml for profnt2 ends here
