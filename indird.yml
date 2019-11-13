@@ -95,10 +95,10 @@ hosts:
             # ends may use combined stdout and stderr of actions
             stdin: output # either stdout, stderr or output for combined stdout and stderr
 
-	tests:
-	   ok: test $i_CODE -eq 0
-	   ko: test $i_CODE -ne 0
-	   any: true
+        tests:
+           ok: test $i_CODE -eq 0
+           ko: test $i_CODE -ne 0
+           any: true
 
         # logs - optional dict of log steps after an action 
         #    structure: desc(opt), type(req), args(req)
@@ -138,9 +138,9 @@ hosts:
             # generic hl7 copy rule
             action: copy                        # an action from the actions dict
             ends:
-	      - { cond: ok, end: done }
-	      - { cond: ko, end: fail }
-	      - { cond: any, end: mail }
+              - { cond: ok, end: done }
+              - { cond: ko, end: fail }
+              - { cond: any, end: mail }
             log: [ debug, default ]          # a list of logs from logs dict
 
         rules:
@@ -202,6 +202,10 @@ hosts:
           fail:
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_home/HL7_fail
+        rules:
+          hl7:
+            - desc: rdvradio
+              <<: *hl7
         # config for rdvradio instance on procom1 ends here
       # Actual indird.yml for procom1 ends here
 
@@ -262,11 +266,17 @@ hosts:
           hl7:
             - desc: check_sspdamoc
               action: check
-              on_exit: [ fail, mail ]
-              log_to: [ debug, default ]
+              ends:
+                - cond: OK
+                  end: done
+                - cond: KO
+                  end: fail
+                - cond: any
+                  end: mail
+              log: [ debug, default ]
             - desc: run_sspdamoc
               action: run
-              on_exit: [ done, fail, mail ]
-              log_to: [ debug, default ]
+              ends: [ done, fail, mail ]
+              log: [ debug, default ]
 
       # Actual indird.yml for profnt2 ends here
