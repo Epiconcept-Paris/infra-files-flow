@@ -146,7 +146,9 @@ hosts:
               - &done { cond: ok, end: done }
               - &fail { cond: ko, end: fail }
               - &mail { cond: ko, end: mail }
-            log: &log [ debug, default ]             # a list of logs from logs dict
+            logs:                               # a list of logs from logs dict
+              - debug
+              - default
 
         rules:
           hl7:
@@ -282,10 +284,10 @@ hosts:
             - desc: check_sspdamoc
               action: check
               # NOTE: add ends ?
-              log: *log
+              logs: [ debug, default ]
             - desc: run_sspdamoc
               action: run
               # NOTE: add ends ?
-              log: *log
+              logs: [ debug, default ]
 
       # Actual indird.yml for profnt2 ends here
