@@ -94,8 +94,9 @@ hosts:
           mail:
             desc: send mail
             cmd: mail -s "$i_FILE stat=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
-            # ends may use combined stdout and stderr of actions
-            stdin: output       # either stderr or output (for combined stdout and stderr)
+            # ends.cmd may use as optional stdin the stdout ('out'), stderr ('err')
+            # or combined stdout+stderr ('all') of it's action
+            stdin: all          # must be one of 'out', 'err', 'all'
 
         # logs - optional dict of log steps after an action 
         #    structure: desc(opt), type(req), args(req)
