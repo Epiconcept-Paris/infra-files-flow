@@ -75,17 +75,16 @@ sudo npm install -g yamljs
 
 ## Proposed Indird pseudo code
 
-My (TDE) interpretation of the specs, resulting from meeting with CGD and CTY:
+Interpretation of the specs, resulting from meetings between TDE, CGD and CTY:
 
 ```
+# wakeup from sleep (end or kill) and save last mtime of spool dir
+# while dir touched since last loop
+#   loop on filetypes (rules members)
+#	  loop on matching files
+#	    loop on rule's steps
+#	      run action of step
+#	      loop on ends of step (using cond)
+#	      loop on logs of step
 # optionally could also wakeup from inotify
-wakeup on signal or wakeup from sleep and store last touch time of spool dir on first wakeup
-if dir untouched since last wakeup or if spool dir locked return
-protected by lock
-  while dir touched since last loop
-    loop on rules of conf
-      loop on files of rules
-        loop on actions of rules using timeout or retry option
-          loop on on_return of action choosing fronm OK or KO
-        loop on log_to of rules
 ```

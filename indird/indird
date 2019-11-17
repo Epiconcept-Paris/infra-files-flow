@@ -6,22 +6,38 @@
 #	Yaml to JSON conversion may use	https://github.com/drbild/json2yaml.git
 #	    which uses packages python-yaml python-docopt
 #
-# TODO: out/err to tmpfile, implement rules
-
-Prg=`basename $0`
-IndPfx="`tr '[a-z]' '[A-Z]' <<< "$Prg"`_"
+Prg=$(basename $0)
+IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"
 eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"
+#echo "IndPfx=$IndPfx Config=$Config"; exit 0
 LogFile=/var/log/$Prg.log
-Stamp='%Y-%m-%d %H:%M:%S'
+StampFmt='%Y-%m-%d %H:%M:%S'
 RunDir=/run
-tty >/dev/null && isTty=y
-test `id -u` -eq 0 && isRoot=y
+TmpDir=/tmp
+MinSleep=5	# Minimum value of 'sleep' property
 
+# Fail exit codes
+ExUsage=1
+ExSyntax=2
+ExNotRoot=3
+ExCfgErr=4
+ExNotHost=5
+ExNoPath=6
+
+tty >/dev/null && isTty=y
+test $(id -u) -eq 0 && isRoot=y
 test -z "$isTty" -a "$isRoot" && exec 2>>$LogFile
 
 #
 #------ Functions ------------------------------------------------------
 #
+Stamp()
+{
+    # global StampFmt
+
+    date "+$StampFmt $1"
+}
+
 # params <message> <logger-level>
 LogMsg()
 {
@@ -30,7 +46,7 @@ LogMsg()
 	echo "$1" >&2
 	return
     fi
-    date "+$Stamp $1" >>$LogFile
+    Stamp "$1" >>$LogFile
     # TODO: Should we use 'daemon' facility instead of 'user' ?
     test "$2" && logger -p user.$2 "$1"
 }
@@ -38,8 +54,9 @@ LogMsg()
 # params none
 Usage()
 {
-    LogMsg "Usage: $0 <dir-tag> [ wakeup | config ]" 'crit'
-    exit 1
+    # global ExUsage
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check ]" 'crit'
+    exit $ExUsage
 }
 
 # params <message> <exit-code>
@@ -48,6 +65,13 @@ LogExit()
     # global Prg
     LogMsg "$Prg: $1" 'err'
     exit $2
+}
+
+# params <message>
+ConfErr()
+{
+    # global Config Tag ExCfgErr
+    LogExit "in $Config for $Tag, $1" $ExCfgErr
 }
 
 # params <message>
@@ -77,50 +101,235 @@ LogDbg()
 #
 #   Read configuration file for our instance (<tag>)
 #
-# params <config-file> <tag> <rundir> [<arg2>]
+# params <config-file> <tag>
 GetConf()
 {
-    # global Conf EnvPfx CmdEnv
-    local cnf key sfx path link tags
+    # global Conf
+    local cnf err line tags
+
+    err=$(mktemp)
+    # Be really defensive (as we shall also need mktemp later)
+    test -f "$err" || LogExit "cannot create temp file ??" $ExCfgErr
 
     # Full-line # comments are allowed, \n changed to ;
-    if cnf=`sed -e '/^[ 	]*#/d' -e 's/\\\\n/; /g' $1 | jq -c -e ".$2"`; then
+    if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".$2" 2>$err); then
 	ParseConf "$cnf"
+	rm $err
+    else
+	if [ -s "$err" ]; then
+	    LogMsg "$Prg: $1 has errors:"
+	    while read line
+	    do
+		LogMsg "    $line"
+	    done <$err
+	    rm $err
+	    exit $ExCfgErr
+	fi
+        rm $err
+	# if tag unknown, list known tags
+	tags=$(sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")')
+	LogExit "\"$2\" tag unknown in $1; known tags: $tags" $ExCfgErr
+    fi
+}
 
-	test "$4" = 'config' && return	# No checks for config
-	# Check for required paths
-	for key in 'path' 'sleep' 'filenames.hl7.pattern' 'actions.copy.cmd' \
-		   'returns.done.cmd' 'returns.fail.cmd'
+#
+#   Check configuration
+#
+# params <rundir>
+ChkConf()
+{
+    # global Conf Config Tag EnvPfx CmdEnv
+    local key val prop idx jdx step sub path link sfx
+
+    # Check for required config parameters
+    for key in 'path' 'sleep'
+    do
+	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
+    done
+    # Make sure that ${Conf['path']} exists
+    test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" $ExNoPath
+    # Make sure that ${Conf['sleep']} is numeric
+    test "$(expr "${Conf['sleep']}" : '\([0-9]*\)')" = "${Conf['sleep']}" || ConfErr "required 'sleep' property must have a numeric value, not '${Conf['sleep']}'"
+    test "${Conf['sleep']}" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${Conf['sleep']}s"
+
+    # Check optional config parameters
+    #   hostname: if param exists, it must have value $Host
+    if [ -v Conf['host'] ]; then
+	val="${Conf['host']}"
+	test "$Host" = "$val" || LogExit "in $Config for $Tag, host '$val' does not match system's '$Host'" $ExNotHost
+    fi
+    #	outerr: if param exists, it must have value 'true'
+    if [ -v Conf['outerr'] ]; then
+	val="${Conf['outerr']}"
+	test "$val" = 'true' || ConfErr "outerr parameter has value '$val', not 'true'"
+    fi
+
+    # Check for required dicts
+    for key in 'filetypes' 'actions' 'rules'
+    do
+	test -v Conf["$key._keys"] || ConfErr "required '$key' dict is missing or empty"
+    done
+
+    # Check filetypes dict
+    for key in ${Conf['filetypes._keys']}
+    do
+	# all members are mandatory
+	for prop in 'desc' 'method' 'pattern'
 	do
-	    test -v Conf[$key] || LogExit "cannot find \"$key\" in $1" 2
+	    test -v Conf["filetypes.$key.$prop"] || ConfErr "filetypes.$key has no '$prop' property"
 	done
-	# Make sure that ${Conf['path']} exists
-	test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" 3
-	# Build environment
-	EnvPfx="${Conf['env_prefix']:-$IndPfx}"
-	for sfx in ${Conf['env._keys']}	# May not exist
+	# method has fixed values
+	val="${Conf["filetypes.$key.method"]}"
+	test "$val" = 'fileglob' -o "$val" = 'regexp' || ConfErr "filetypes.$key.method has invalid value \"$val\""
+    done
+
+    # Check actions dict
+    for key in ${Conf['actions._keys']}
+    do
+	# at least cmd is required, all others optional
+	test -v Conf["actions.$key.cmd"] || ConfErr "actions.$key has no 'cmd' property"
+	# check that optionnal chdir's directory exists
+	if [ -v Conf["actions.$key.chdir"] ]; then
+	    val="${Conf["actions.$key.chdir"]}"
+	    test -d "$val" -o "$val" = 'null' || ConfErr "actions.$key.chdir directory \"$val\" does not exist"
+	fi
+    done
+
+    # Check optional ends dict
+    for key in ${Conf['ends._keys']}
+    do
+	# at least cmd is required, all others optional
+	test -v Conf["ends.$key.cmd"] || ConfErr "ends.$key has no 'cmd' property"
+	# check that optionnal chdir's directory exists
+	if [ -v Conf["ends.$key.chdir"] ]; then
+	    val="${Conf["ends.$key.chdir"]}"
+	    test -d "$val" -o "$val" = 'null' || ConfErr "ends.$key.chdir directory \"$val\" does not exist"
+	fi
+	# optional stdin has fixed values
+	if [ -v Conf["ends.$key.stdin"] ]; then
+	    val="${Conf["ends.$key.stdin"]}"
+	    if [ -v Conf['outerr'] ]; then
+		test "$val" = 'out' -o "$val" = 'err' -o "$val" = 'all' || ConfErr "ends.$key.stdin has invalid value \"$val\""
+	    else
+		test "$val" = 'all' || ConfErr "ends.$key.stdin has invalid value \"$val\""
+	    fi
+	    HasStdIn=y
+	fi
+    done
+
+    # Check optional logs dict
+    for key in ${Conf['logs._keys']}
+    do
+	# at least type is required, others may vary
+	test -v Conf["logs.$key.type"] || ConfErr "logs.$key has no 'type' property"
+	val="${Conf["logs.$key.type"]}"
+	if [ "$val" = 'file' ]; then
+	    # check for args
+	    test -v Conf["logs.$key.args._keys"] || ConfErr "logs.$key has no 'args' property"
+	    # check for args.path
+	    test -v Conf["logs.$key.args.path"] || ConfErr "logs.$key has no 'path' property in 'args'"
+	elif [ "$val" = 'syslog' ]; then
+	    # check for args
+	    test -v Conf["logs.$key.args._keys"] || ConfErr "logs.$key has no 'args' property"
+	    # check args.facility
+	    test -v Conf["logs.$key.args.facility"] || ConfErr "logs.$key has no 'facility' property in 'args'"
+	    val="${Conf["logs.$key.args.facility"]}"
+	    test "$val" = 'user' -o "$val" = 'daemon' || ConfErr "logs.$key.facility has invalid value \"$val\""
+	    # check args.level
+	    test -v Conf["logs.$key.args.level"] || ConfErr "logs.$key has no 'level' property in 'args'"
+	    val="${Conf["logs.$key.args.level"]}"
+	    # check .level for valid logger levels
+	    #	panic	is a deprecated synonym for emerg
+	    #	error   is a deprecated synonym for err
+	    #	warn	is a deprecated synonym for warning
+	    for lvl in emerg alert crit err warning notice info debug panic error warn
+	    do
+		test "$val" = "$lvl" && { val=; break; }
+	    done
+	    test "$val" && ConfErr "logs.$key.args.level has invalid value \"$val\""
+	else
+	    ConfErr "logs.$key.type has invalid value \"$val\""
+	fi
+    done
+
+    # Check top-level rules dict
+    for key in ${Conf['rules._keys']}
+    do
+	# rule members must match filetypes (dict)
+	test -v Conf["filetypes.$key.desc"] || ConfErr "rules.$key does not match any 'filetypes' member"
+	# each rule member/filetype has steps
+	for idx in ${Conf["rules.$key._keys"]}
 	do
-	    key="env.$sfx"
-	    CmdEnv="$CmdEnv$EnvPfx$sfx=\"${Conf[$key]}\" "
+	    step="rules.$key.$idx"
+	    # each step must have at least an action
+	    test -v Conf["$step.action"] || ConfErr "$step has no 'action' property"
+	    # action value must match a member of actions (dict)
+	    val="${Conf["$step.action"]}"
+	    test -v Conf["actions.$val.cmd"] || ConfErr "$step.action \"$val\" does not match any 'actions' member"
+	    # a step may have a list of ends
+	    for jdx in ${Conf["$step.ends._keys"]}
+	    do
+		sub="$step.ends.$jdx"
+		# each end must have a cond and an end (name)
+		for prop in 'cond' 'end'
+		do
+		    test -v Conf["$sub.$prop"] || ConfErr "$sub has no '$prop' property"
+		done
+		# cond must match a member of conds (dict)
+		val="${Conf["$sub.cond"]}"
+		test -v Conf["conds.$val"] || ConfErr "$sub.cond \"$val\" does not match any 'conds' member"
+		# end must match a member of ends (dict)
+		val="${Conf["$sub.end"]}"
+		test -v Conf["ends.$val.cmd"] || ConfErr "$sub.end \"$val\" does not match any 'ends' member"
+	    done
+
+	    # a step may also have a list of logs
+	    for jdx in ${Conf["$step.logs._keys"]}
+	    do
+		sub="$step.logs.$jdx"
+		# each log must match a member of logs (dict)
+		val="${Conf["$sub"]}"
+		test -v Conf["logs.$val.type"] || ConfErr "$sub \"$val\" does not match any 'logs' member"
+	    done
 	done
-	CmdEnv="$CmdEnv${EnvPfx}PATH=\"${Conf['path']}\" "
-	# Make sure our .path has its dir
-	mkdir -p $3
-	path="$3/${2}_path"
-	if [ -e "$path" -o -L "$path" ]; then
-	    link=`readlink "$path"`
+    done
+
+    # Make sure our .path has its dir
+    mkdir -p $1		# make our rundir if necessary
+    path="$1/${Tag}_path"
+    if [ -e "$path" -o -L "$path" ]; then
+	if [ -L "$path" ]; then	# $path is a symbolic link (orphan or not)
+	    link=$(readlink "$path")
 	    #echo "path='$path' link='$link' conf='${Conf['path']}'"
 	    if [ "$link" != "${Conf['path']}" ]; then
-		LogNote "Removing previous '$path' link to '$link'"
+		if [ "$isRoot" ]; then
+		    LogNote "Removing previous '$path' link to '$link'"
+		    rm -f "$path"
+		else
+		    LogMsg "$Prg: NOTE: $path points to $link, not ${Conf['path']}!"
+		fi
+	    fi
+	else	# $path exists but is not a symbolic link
+	    test -d "$path" && LogExit "$path must be a symbolic link, not a directory" $ExNoPath
+	    if [ "$isRoot" ]; then
+		LogNote "Removing spurious file '$path'"
 		rm -f "$path"
+	    else
+		LogMsg "$Prg: NOTE: $path exists and is not a symbolic link"
 	    fi
 	fi
-	test -e "$path" || ln -s "${Conf['path']}" "$path"
-    else
-	# if tag unknown, list known tags
-	tags=`sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")'`
-	LogExit "\"$2\" tag unknown in $1; known tags: $tags" 2
     fi
+    test -e "$path" || { test "$isRoot" && ln -s "${Conf['path']}" "$path"; }
+
+    # Build environment
+    EnvPfx="${Conf['env_prefix']:-$IndPfx}"
+    for sfx in ${Conf['env._keys']}	# May not exist
+    do
+	CmdEnv="$CmdEnv$EnvPfx$sfx=\"${Conf["env.$sfx"]}\" "
+    done
+    CmdEnv="$CmdEnv${EnvPfx}HOST=\"$Host\" "
+    CmdEnv="$CmdEnv${EnvPfx}CONF=\"$Tag\" "
+    CmdEnv="$CmdEnv${EnvPfx}PATH=\"${Conf['path']}\" "
 }
 
 #
@@ -132,14 +341,14 @@ ParseConf()
     # global Conf
     local JSON Path Key Val
 
-    JSON=`jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1"`
+    JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
     test "$2" && Path="$2."
 
     while read -r Key Val
     do
         if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
 	    test "$Path$Key" = 'macros' && continue	# Skip this yaml kludge
-            Conf["$Path$Key._keys"]=`jq -r 'keys|map(tostring)|join(" ")' <<< "$Val"`
+            Conf["$Path$Key._keys"]=$(jq -r 'keys|map(tostring)|join(" ")' <<< "$Val")
             ParseConf "$Val" "$Path$Key"
         else
             Conf["$Path$Key"]="$Val"
@@ -155,9 +364,9 @@ WakeupMain()
 {
     local MainPID pid
 
-    eval `systemctl -p MainPID show $1`
+    eval $(systemctl -p MainPID show $1)
     if [ 0$MainPID -gt 0 ]; then
-	pid=`ps -ef | awk "\\$3==$MainPID && \\$8==\"sleep\"{print \\$2}"`
+	pid=$(ps -ef | awk "\$3==$MainPID && \$8==\"sleep\"{print \$2}")
 	if [ "$pid" ]; then
 	    LogDbg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
 	    kill $pid
@@ -180,14 +389,14 @@ ConfigPaths()
 
     for key in "${!Conf[@]}"
     do
-	echo "${key}=\"${Conf[$key]}\""
+	echo "$key=\"${Conf[$key]}\""
     done | sort
 }
 
 SigUsr1()
 {
     # global Config Conf Tag RunDir Prg
-    LogInfo "Reloading $Config on SIGUSR1"
+    LogNote "Reloading $Config on SIGUSR1"
 
     # We need to delete the old Conf, but we cannot use unset
     # as we would then need to do a declare -A Conf, which
@@ -197,13 +406,14 @@ SigUsr1()
     do
 	unset Conf[$key]
     done
-    # Then re-read the config
-    GetConf $Config $Tag $RunDir/$Prg
+    # Then re-read and re-check the config
+    GetConf $Config $Tag
+    ChkConf $RunDir/$Prg
 }
 
 SigTerm()
 {
-    LogInfo "Exiting on SIGTERM"
+    LogNote "Exiting on SIGTERM"
     exit 0
 }
 
@@ -214,32 +424,51 @@ SigTerm()
 #   so we can load and check our config
 #
 test "$1" || Usage
-Tag="$1"
+command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
+
+Tag=$1
+Host=$(hostname)
+
+EnvPfx=
+CmdEnv=
+HasStdIn=
 declare -A Conf
-GetConf $Config $Tag $RunDir/$Prg $2	# Check that tag exists and load config
-#echo "CmdEnv=\"$CmdEnv\""; exit 0
+GetConf $Config $Tag	# Check that tag exists and load config
 #
-#   Handle wakeup calls from our associated .path, and paths utility
+#   Handle config utility: output config paths without checks
 #
 if [ "$2" = 'config' ]; then
-    test "$isTty" && ConfigPaths || LogExit "'$2' command is for command-line only" 2
+    test "$isTty" || LogExit "'$2' command is for command-line only" $ExSyntax
+    ConfigPaths
     exit 0
 fi
-test "$isRoot" || LogExit "must be run as root" 3
-if [ "$2" = 'wakeup' ]; then
+ChkConf $RunDir/$Prg
+#echo "CmdEnv=[$CmdEnv]"; exit 0
+#
+#   Handle check utility: just exit now, display msg if tty
+#
+if [ "$2" = 'check' ]; then
+    test "$isTty" && echo "Config $Config for $Tag OK"
+    exit 0
+fi
+test -z "$2" -o "$2" = 'wakeup' || Usage	# Reject unknown 2nd arg
+test "$isRoot" || LogExit "must be run as root" $ExNotRoot
+#
+#   Handle wakeup calls from our associated .path
+#
+if [ "$2" ]; then
     WakeupMain "$Prg@$Tag"
     exit 0
 fi
-test "$2" && Usage	# Reject 2nd arg != 'wakeup' && != 'config'
 #
 #   Trap signals and notify systemd we are done with our init
 #
 trap SigTerm TERM
 trap SigUsr1 USR1
-LogInfo "Starting $Prg on ${Conf['path']} ================"
-LogInfo "Default watch interval is ${Conf['sleep']}s"
+LogNote "Starting $Prg on ${Conf['path']} ================"
+LogInfo "Watch interval is ${Conf['sleep']}s"
 cd "${Conf['path']}"
-systemd-notify --ready
+systemd-notify --ready	# Notify the end of our startup phase
 
 #
 #------ Main loop ------------------------------------------------------
@@ -249,36 +478,146 @@ while :
 do
     # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
     # while dir touched since last loop
-    #	TODO implement full conf handling :
-    #	loop on rules of conf
-    #	  loop on filenames of rules
-    #	    loop on actions of rules using timeout or retry option
-    #	      loop on on_return of action choosing fronm OK or KO
-    #	    loop on log_to of rules
+    #   loop on filetypes (rules members)
+    #	  loop on matching files
+    #	    loop on rule's steps
+    #	      run action of step
+    #	      loop on ends of step (using cond)
+    #	      loop on logs of step
     #
-    Mod=`stat -c '%Y' "${Conf['path']}"`
+    Mod=$(stat -c '%Y' "${Conf['path']}")
+    #   Loop until dir untouched {
     while [ $Mod -gt $LastMod ]
     do
-	Nb=0
+	NbP=0	# number of files processed
+	NbS=0	# number of files with at least one success action
 	LastMod=$Mod
-	LogDbg "Examining ${Conf['path']}..."
-	for f in ${Conf['filenames.hl7.pattern']}
+	LogDbg "Examining "${Conf['path']}"..."
+	#   Loop on all 'rules' members {
+	for ft in ${Conf['rules._keys']}
 	do
-	    test -f "$f" || continue	# Handle no match
-	    LogDbg "Processing ${Conf['path']}/$f"
-	    ThisEnv="$CmdEnv${EnvPfx}FILE=\"$f\""
-	    if sh -c "$ThisEnv; ${Conf['actions.copy.cmd']}"; then
-		sh -c "$ThisEnv; ${Conf['returns.done.cmd']}"
-		LogInfo "$f processed succesfully"
-	    else
-		sh -c "$ThisEnv; ${Conf['returns.fail.cmd']}"
-		LogWarn "$f was NOT processed succesfully"
+	    LogInfo "Checking ${Conf["filetypes.$ft.desc"]}"
+	    pat="${Conf["filetypes.$ft.pattern"]}" 
+
+	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
+		Files="$pat"
+	    else	# regexp
+		Files=$(ls | grep "$pat")	# TODO: test
 	    fi
-	    Nb=$((Nb + 1))
-	done
-	LogDbg "Processed $Nb file(s)"
-	Mod=`stat -c '%Y' "${Conf['path']}"`
-    done
+	    #   Loop on matching files {
+	    for file in $Files
+	    do
+		test -f "$file" || continue	# Handle no match
+
+		LogDbg "  Processing $file"
+		# base Env for all steps
+		FileEnv="$CmdEnv${EnvPfx}FILE=\"$file\""
+
+		#   Loop on rule's steps {
+		Succ=
+		for idx in ${Conf["rules.$ft._keys"]}
+		do
+		    step="rules.$ft.$idx"
+		    test -v Conf["$step.desc"] && LogDbg "    Step $idx: ${Conf["$step.desc"]}"
+
+		    #   Run action, saving stdout/stderr and exit code
+		    act="actions.${Conf["$step.action"]}"
+		    ThisEnv="$FileEnv"
+
+		    # Optional action's chdir
+		    ChDir=
+		    test -v Conf["$act.chdir"] -a "${Conf["$act.chdir"]}" != 'null' && ChDir=" cd ${Conf["$act.chdir"]};"
+		
+		    # Optional action's env
+		    for sfx in ${Conf["$act.env._keys"]}	# May not exist
+		    do
+			ThisEnv="$ThisEnv $EnvPfx$sfx=\"${Conf["$act.env.$sfx"]}\""
+		    done
+
+		    # Go !
+		    LogDbg "      running $act"
+		    LogDbg "        cmd: >>$ThisEnv;$ChDir ${Conf["$act.cmd"]}<<"
+		    test "$HasStdIn" && TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all) || TmpAll=/dev/null
+		    if [ -v Conf['outerr'] ]; then
+			TmpOut=$(mktemp $TmpDir/$Prg-XXXXXXXX.out)
+			TmpErr=$(mktemp $TmpDir/$Prg-XXXXXXXX.err)
+			{ { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}"; } | tee $TmpOut; exit ${PIPESTATUS[0]}; } 2>&1 1>&3 | tee $TmpErr; } >$TmpAll 3>&1	# Yes we can!
+			xc=${PIPESTATUS[0]}		# THE exit code
+		    else
+			TmpOut=/dev/null
+			TmpErr=/dev/null
+			sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpAll 2>&1
+			xc=$?
+		    fi
+		    # base Env for all ends
+		    CondEnv="$FileEnv ${EnvPfx}CODE=$xc"
+
+		    #	Run any ends {
+		    for jdx in ${Conf["$step.ends._keys"]}
+		    do
+			cond=${Conf["$step.ends.$jdx.cond"]}
+			LogDbg "      end $jdx: check cond $cond"
+			sh -c "$CondEnv; ${Conf["conds.$cond"]}" >/dev/null 2>&1 || continue
+
+			end="ends.${Conf["$step.ends.$jdx.end"]}"
+			ThisEnv="$CondEnv"
+
+			# Optional end's chdir
+			Chdir=
+			test -v Conf["$end.chdir"] -a "${Conf["$end.chdir"]}" != 'null' && ChDir=" cd ${Conf["$end.chdir"]};"
+			# Optional end's env
+			for sfx in ${Conf["$end.env._keys"]}	# May not exist
+			do
+			    ThisEnv="$ThisEnv $EnvPfx$sfx=\"${Conf["$end.env.$sfx"]}\""
+			done
+
+			StdIn=/dev/null
+			if [ -v Conf["$end.stdin"] ]; then
+			    StdIn=$TmpAll
+			    if [ -v Conf['outerr'] ]; then
+				case "${Conf["$end.stdin"]}" in
+				    out)	StdIn=$TmpOut;;
+				    err)	StdIn=$TmpErr;;
+				esac
+			    fi
+			fi
+			LogDbg "        running $end"
+			LogDbg "          cmd: >>$ThisEnv;$ChDir ${Conf["$end.cmd"]}<<"
+			Out=$(sh -c "$ThisEnv;$ChDir ${Conf["$end.cmd"]}" <$StdIn 2>&1)
+			rc=$?
+			if [ $rc -ne 0 ]; then
+			    Out=$(<<<"$Out" tr '\n' '~' | sed -e 's/~$//' -e 's/~/<LF>/g')
+			    LogWarn "\"${Conf["$end.cmd"]}\" returned \"$Out\" (exit=$rc)"
+			fi
+		    done # } for jdx in ${Conf["$step.ends._keys"]}
+		    for f in $TmpOut $TmpErr $TmpAll
+		    do
+			test -f "$f" && rm -f "$f"	# Do not destroy /dev/null !
+		    done
+
+		    #	Run any logs {
+		    test "$xc" -eq 0 && { Ret='success'; Succ=y; } || Ret="failure (exit=$xc)"
+		    Msg="$Tag $act for $file returned $Ret"
+		    for jdx in ${Conf["$step.logs._keys"]}
+		    do
+			log="logs.${Conf["$step.logs.$jdx"]}"
+			if [ "${Conf["$log.type"]}" = 'file' ]; then
+			    Stamp "  $Msg" >>"${Conf["$log.args.path"]}"
+			else
+			    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$Msg"
+			fi
+		    done # } for jdx in ${Conf["$step.logs._keys"]}
+
+		    # If our action failed, abort steps loop
+		    test "$xc" -eq 0 || break
+		done # } for idx in ${Conf["rules.$ft._keys"]}
+		NbP=$((NbP + 1))
+		test "$Succ" && NbS=$((NbS + 1))
+	    done # } for file in $Files
+	done # } for ft in ${Conf['rules._keys']}
+	LogInfo "Processed $NbP file(s), $NbS successfully"
+	Mod=$(stat -c '%Y' "${Conf['path']}")
+    done # } while [ $Mod -gt $LastMod ]
     LogDbg "Sleeping ${Conf['sleep']}s"
     sleep ${Conf['sleep']} &
     wait $!	# Trick to avoid stderr messages like Terminated
