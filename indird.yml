@@ -22,6 +22,9 @@ hosts:
         # required poll delay
         sleep: 60
 
+        # optional expansion of stdin values; if true, 'out' and 'err' allowed
+        outerr: true
+
         # optional sanity check (against hostname)
         host: procom1
 
@@ -94,9 +97,10 @@ hosts:
           mail:
             desc: send mail
             cmd: mail -s "$i_FILE stat=$i_CODE" infosadminrobots@epiconcept.fr c.girard@epiconcept.fr
-            # ends.cmd may use as optional stdin the stdout ('out'), stderr ('err')
-            # or combined stdout+stderr ('all') of it's action
-            stdin: all          # must be one of 'out', 'err', 'all'
+            # ends.cmd may use as optional stdin the combined stdout+stderr
+            # ('all') of it's action, and also, if the 'outerr' paramater is
+            # true, separate stdout ('out') or stderr ('err')
+            stdin: all          # must be one of 'all' (+ 'out', 'err')
 
         # logs - optional dict of log steps after an action 
         #    structure: desc(opt), type(req), args(req)
@@ -108,13 +112,23 @@ hosts:
             desc: log to file
             type: file
             args:
+              # path is required for 'file' type
               path: /var/log/indird.log
+
           default:
             desc: log to syslog
             type: syslog
+            # syslog's args facility and level are from logger(1) (lowercase)
+            # their values are checked by the daemon on start
             args:
-              level: LOG_ERR
-              facility: USER
+              # valid facilities are so far 'user' and 'daemon'
+              facility: user
+              # valid levels are 'emerg' 'alert' 'crit' 'err'
+              #   'warning' 'notice' 'info' 'debug' and deprecated synonyms
+              #   'panic' for 'emerg'
+              #   'error' for 'err'
+              #   'warn'  for 'warning'
+              level: err
 
         # conds - dict of conditions for rules step ends
         #       structure: member is the condition shell command
