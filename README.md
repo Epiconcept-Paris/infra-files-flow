@@ -5,7 +5,14 @@ Configuration systemd et script de gestion de répertoires d'arrivée
 
 * shell limité (cf select login, shell, server from usersunix where login in ('esis-data-pre', 'esis-data-pro', 'sspnice', 'sspdamoc'); sur Work)
 
-## Installation du prototype de script indird
+## Introduction
+Le script `indird` gère un flux de fichiers entrant dans un seul répertoire. Le fichiers peuvent être de différents types et les actions effectuées sur ces fichiers peuvent varier selon le type, l'ensemble étant paramétrable dans un fichier de configuration en JSON qui peut être extrait d'un fichier global de configuration en YAML.
+
+## Utilitaire prérequis
+Le script `indird` utilise l'utilitaire `jq` qui est disponible dans les paquets Linux Debian standards.
+Une vérification de l'accessibilité de `jq` est faite au lancement de `indird`.
+
+## Installation du script indird
 
 Il faut copier les fichiers aux emplacements suivants :
 ```
@@ -22,7 +29,13 @@ Après modification du fichier indird.conf, il faut lancer :
 
 # systemctl start indird@<tag>.service
 ```
-et pour arrêter / désinstaller :
+dans lequel <tag> est le nom de la section du fichier de configuration a utiliser. Exemple :
+```
+# systemctl start indird@sspdamoc
+```
+Il est ainsi possible d'utiliser plusieurs instances de `indird` sur un même système.
+
+Pour arrêter / désinstaller :
 
 ```
 # systemctl stop indird@<tag>.service
@@ -43,6 +56,17 @@ Le rechargement de configuration est géré :
 NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par `indird`
 
 Le fichier de log est pour l'instant `/var/log/indird.log` et les fichiers de fonctionnement vont dans `/run/indird` (créé si nécessaire).
+
+## Fichier de configuration
+Il s'agit par défaut de ```/etc/indird.conf```.
+Il s'agit par défaut de `/etc/indird.conf`, mais il est possible de spécifier (pour des tests par exemple) un autre chemin de fichier dans la variable d'environnement `INDIRD_CONFIG``. Exemple :
+```
+$ INDIRD_CONFIG=indird.conf indird sspdamoc check
+```
+### Structure du fichier de configuration
+
+
+## Algorithme de fonctionnement
 
 ## Proposed Indird config file (by TDE)
 
