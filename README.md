@@ -59,7 +59,8 @@ Le fichier de log est pour l'instant `/var/log/indird.log` et les fichiers de fo
 
 ## Fichier de configuration
 Il s'agit par défaut de ```/etc/indird.conf```.
-Il s'agit par défaut de `/etc/indird.conf`, mais il est possible de spécifier (pour des tests par exemple) un autre chemin de fichier dans la variable d'environnement `INDIRD_CONFIG``. Exemple :
+
+Il s'agit par défaut de `/etc/indird.conf`, mais il est possible de spécifier (pour des tests par exemple) un autre chemin de fichier dans la variable d'environnement `INDIRD_CONFIG`. Exemple :
 ```
 $ INDIRD_CONFIG=indird.conf indird sspdamoc check
 ```
@@ -67,6 +68,21 @@ $ INDIRD_CONFIG=indird.conf indird sspdamoc check
 
 
 ## Algorithme de fonctionnement
+Après lecture et vérification du fichier de configuration, `indird` entre dans la boucle principale suivante:
+```
+indéfiniment (jusqu'à arrêt par SIGTERM)
+  sortir de `sleep` (par fin du délai ou par `kill`) et sauver le dernier `mtime` de `path`
+  tant que `path` a été modifié (`mtime`) depuis le dernier tour (de cette boucle)
+    pour toutes les règles membres de l'objet `rules`
+      pour tous les fichiers correspondant au membre de `filetypes` de même nom que la règle
+        pour toutes les étapes de la règle
+	  lancer l'action de la règle
+	  pour toutes les fins (`ends`) de la règle
+	    vérifier si la condition `cond` de fin s'applique
+	    exécuter le `end` correspondant défini dans l'ensemble des `ends` des fins
+	  pour tous les (`logs`) de la règle
+	    logger le résultat de l'action de la règle
+```
 
 ## Proposed Indird config file (by TDE)
 
