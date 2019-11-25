@@ -95,7 +95,7 @@ LogInfo()
 # params <message>
 LogDbg()
 {
-    LogMsg "$1" # 'debug'
+    test -v Conf['debug'] && LogMsg "$1" # 'debug'
 }
 
 #
@@ -139,7 +139,7 @@ GetConf()
 ChkConf()
 {
     # global Conf Config Tag EnvPfx CmdEnv
-    local key val prop idx jdx step sub path link sfx
+    local key val prop chks idx jdx step sub path link sfx
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -158,10 +158,17 @@ ChkConf()
 	val="${Conf['host']}"
 	test "$Host" = "$val" || LogExit "in $Config for $Tag, host '$val' does not match system's '$Host'" $ExNotHost
     fi
-    #	outerr: if param exists, it must have value 'true'
+
+    #	outerr: if param exists, it must have value 'merged', 'split' or 'combo'
     if [ -v Conf['outerr'] ]; then
 	val="${Conf['outerr']}"
-	test "$val" = 'true' || ConfErr "outerr parameter has value '$val', not 'true'"
+	test "$val" = 'merged' -o "$val" = 'split' -o "$val" = 'combo' || ConfErr "outerr has invalid value \"$val\""
+    fi
+
+    #	debug: if param exists, it must have value 'true'
+    if [ -v Conf['debug'] ]; then
+	val="${Conf['debug']}"
+	test "$val" = 'true' || ConfErr "debug parameter has value '$val', not 'true'"
     fi
 
     # Check for required dicts
@@ -208,11 +215,18 @@ ChkConf()
 	# optional stdin has fixed values
 	if [ -v Conf["ends.$key.stdin"] ]; then
 	    val="${Conf["ends.$key.stdin"]}"
+	    chks="out err all"	# 'combo' or default
 	    if [ -v Conf['outerr'] ]; then
-		test "$val" = 'out' -o "$val" = 'err' -o "$val" = 'all' || ConfErr "ends.$key.stdin has invalid value \"$val\""
-	    else
-		test "$val" = 'all' || ConfErr "ends.$key.stdin has invalid value \"$val\""
+		case "${Conf['outerr']}" in
+		    merged) chks="all";;
+		    split)  chks="out err";;
+		esac
 	    fi
+	    for prop in $chks
+	    do
+		test "$val" = "$prop" && { val=; break; }
+	    done
+	    test "$val" && ConfErr "ends.$key.stdin has invalid value \"$val\""
 	    HasStdIn=y
 	fi
     done
@@ -242,9 +256,9 @@ ChkConf()
 	    #	panic	is a deprecated synonym for emerg
 	    #	error   is a deprecated synonym for err
 	    #	warn	is a deprecated synonym for warning
-	    for lvl in emerg alert crit err warning notice info debug panic error warn
+	    for prop in emerg alert crit err warning notice info debug panic error warn
 	    do
-		test "$val" = "$lvl" && { val=; break; }
+		test "$val" = "$prop" && { val=; break; }
 	    done
 	    test "$val" && ConfErr "logs.$key.args.level has invalid value \"$val\""
 	else
@@ -511,7 +525,8 @@ do
 
 		LogDbg "  Processing $file"
 		# base Env for all steps
-		FileEnv="$CmdEnv${EnvPfx}FILE=\"$file\""
+		FileEnv="$CmdEnv${EnvPfx}RULE=\"$ft\""
+		FileEnv="$FileEnv ${EnvPfx}FILE=\"$file\""
 
 		#   Loop on rule's steps {
 		Succ=
@@ -602,7 +617,8 @@ do
 		    do
 			log="logs.${Conf["$step.logs.$jdx"]}"
 			if [ "${Conf["$log.type"]}" = 'file' ]; then
-			    Stamp "  $Msg" >>"${Conf["$log.args.path"]}"
+			    logfile=$(sh -c "$ThisEnv; echo \"${Conf["$log.args.path"]}\"")
+			    Stamp "$Msg" >>"$logfile"
 			else
 			    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$Msg"
 			fi

@@ -22,8 +22,11 @@ hosts:
         # required poll delay
         sleep: 60
 
-        # optional expansion of stdin values; if true, 'out' and 'err' allowed
-        outerr: true
+        # optional expansion of stdin values. Can be:
+        #   'merged'    if stdin's are only 'all'
+        #   'split'     if stdin's are 'out' or 'err'
+        #   'combo'     if stdin's are 'out', 'err' or 'all' (default)
+        outerr: merged
 
         # optional sanity check (against hostname)
         host: procom1
@@ -39,6 +42,7 @@ hosts:
         #   ${env_prefix}HOST   name of host
         #   ${env_prefix}CONF   name of our instance
         #   ${env_prefix}PATH   value of path above
+        #   ${env_prefix}RULE   type of file matched by filetype
         #   ${env_prefix}FILE   name of file matched by filetype
         #   ${env_prefix}CODE   exit code of previous action cmd
         env:
@@ -102,7 +106,7 @@ hosts:
             # true, separate stdout ('out') or stderr ('err')
             stdin: all          # must be one of 'all' (+ 'out', 'err')
 
-        # logs - optional dict of log steps after an action 
+        # logs - optional dict of log steps after an action
         #    structure: desc(opt), type(req), args(req)
         #       args has a structure that depends on the value of type
         # dict is required if any member is referenced within rules dict
@@ -151,7 +155,7 @@ hosts:
         #       ends(opt) is a list of members of the ends dict, in sequence
         #       log(opt) is a list of members of the logs dict, in sequence
         # Steps of a list are executed in sequence until an error occurs in action
-        
+
         # yaml kludge, 'macros' is recognized and discarded by the daemon
         macros:
           - &hl7
