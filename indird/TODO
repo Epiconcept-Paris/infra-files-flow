@@ -1,26 +1,20 @@
-rdv: ma 12.11 17h
-x questions:
- x boucles imbriquées en bon ordre
- x stdout/err dans tempfile
-
 x check config relations
 x actions output to tmpfile
 x handle rules
 
 x implémentation partielle des specs de TDE à finir
-~ manque de flexibilité (bash plutôt que python/...) CGD dit pourquoi pas mais ds 2 ans
 x les paramètres doivent pas être en dur dans le script
 x lancer actions selon RC
 x log de suivi complet
 x déplacement fichiers
-x abandon : déplacement fichiers / match regexp, retry en cas d'erreur.
-x question: Multidossier géré par un seul daemon ?
-x    Def comment on gère eSIS avec ses x fichiers dans 180 dossiers
-x   à priori non pour le multidossier, à revoir avec Thierry
+x match regexp
+x traitement séquentiel acceptable et même préférable
+x commande de traitement ne doit pas bloquer (-> cmde prefix 'timeout')
 
-    pool de process boucle surveillant n répertoires
-    traitement séquentiel acceptable et même préférable
-    commande de traitement ne doit pas bloquer
-    IPC un peu plus ellaboré
+x abandon :
+    x retry en cas d'erreur.
+    x pool de process boucle surveillant n répertoires (multidossier eSIS)
+    x avec IPC un peu plus ellaboré que signal
+    x python plutot que bash (pas assez souple): CGD dit pourquoi pas mais ds 2 ans
 
 >> plus doc technique
