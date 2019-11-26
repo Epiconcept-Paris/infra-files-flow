@@ -139,7 +139,7 @@ GetConf()
 ChkConf()
 {
     # global Conf Config Tag EnvPfx CmdEnv
-    local key val prop chks idx jdx step sub path link sfx
+    local key val prop idx jdx step sub path link sfx
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -149,20 +149,15 @@ ChkConf()
     # Make sure that ${Conf['path']} exists
     test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
-    test "$(expr "${Conf['sleep']}" : '\([0-9]*\)')" = "${Conf['sleep']}" || ConfErr "required 'sleep' property must have a numeric value, not '${Conf['sleep']}'"
-    test "${Conf['sleep']}" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${Conf['sleep']}s"
+    val="${Conf['sleep']}"
+    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must have a numeric value, not '$val'"
+    test "$val" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${val}s"
 
     # Check optional config parameters
     #   hostname: if param exists, it must have value $Host
     if [ -v Conf['host'] ]; then
 	val="${Conf['host']}"
 	test "$Host" = "$val" || LogExit "in $Config for $Tag, host '$val' does not match system's '$Host'" $ExNotHost
-    fi
-
-    #	outerr: if param exists, it must have value 'merged', 'split' or 'combo'
-    if [ -v Conf['outerr'] ]; then
-	val="${Conf['outerr']}"
-	test "$val" = 'merged' -o "$val" = 'split' -o "$val" = 'combo' || ConfErr "outerr has invalid value \"$val\""
     fi
 
     #	debug: if param exists, it must have value 'true'
@@ -215,19 +210,7 @@ ChkConf()
 	# optional stdin has fixed values
 	if [ -v Conf["ends.$key.stdin"] ]; then
 	    val="${Conf["ends.$key.stdin"]}"
-	    chks="out err all"	# 'combo' or default
-	    if [ -v Conf['outerr'] ]; then
-		case "${Conf['outerr']}" in
-		    merged) chks="all";;
-		    split)  chks="out err";;
-		esac
-	    fi
-	    for prop in $chks
-	    do
-		test "$val" = "$prop" && { val=; break; }
-	    done
-	    test "$val" && ConfErr "ends.$key.stdin has invalid value \"$val\""
-	    HasStdIn=y
+	    test "$val" = 'out' -o "$val" = 'err' -o "$val" = 'all' || ConfErr "ends.$key.stdin has invalid value \"$val\""
 	fi
     done
 
@@ -395,7 +378,7 @@ WakeupMain()
 #
 #   Output all JSON paths declared in the config file
 #   (NOTE that these 'paths' are conceptually unrelated to ${Conf['path']})
-#   
+#
 ConfigPaths()
 {
     # global Conf
@@ -445,7 +428,6 @@ Host=$(hostname)
 
 EnvPfx=
 CmdEnv=
-HasStdIn=
 declare -A Conf
 GetConf $Config $Tag	# Check that tag exists and load config
 #
@@ -511,7 +493,7 @@ do
 	for ft in ${Conf['rules._keys']}
 	do
 	    LogInfo "Checking ${Conf["filetypes.$ft.desc"]}"
-	    pat="${Conf["filetypes.$ft.pattern"]}" 
+	    pat="${Conf["filetypes.$ft.pattern"]}"
 
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
 		Files="$pat"
@@ -542,27 +524,75 @@ do
 		    # Optional action's chdir
 		    ChDir=
 		    test -v Conf["$act.chdir"] -a "${Conf["$act.chdir"]}" != 'null' && ChDir=" cd ${Conf["$act.chdir"]};"
-		
+
 		    # Optional action's env
 		    for sfx in ${Conf["$act.env._keys"]}	# May not exist
 		    do
 			ThisEnv="$ThisEnv $EnvPfx$sfx=\"${Conf["$act.env.$sfx"]}\""
 		    done
 
+		    #	Determine our step's possible StdIns
+		    StdIns=
+		    for jdx in ${Conf["$step.ends._keys"]}
+		    do
+			end="ends.${Conf["$step.ends.$jdx.end"]}"
+			if [ -v Conf["$end.stdin"] ]; then
+			    val="${Conf["$end.stdin"]}"
+			    test "$StdIns" && StdIns="$StdIns "
+			    StdIns="$StdIns$val"
+			fi
+		    done
+		    if [ "$StdIns" ]; then
+			# Normalize $StdIns to one of these values
+			#	out		(split)
+			#	err		(split)
+			#	all		(merge)
+			#	out err		(split)
+			#	out all		(combo)
+			#	err all		(combo)
+			#	out err all	(combo)
+			StdIns=`echo "$StdIns" | tr ' ' '\n' | sort -ru`
+			StdIns=`echo -n "$StdIns" | tr '\n' ' '`
+		    fi
+
 		    # Go !
 		    LogDbg "      running $act"
 		    LogDbg "        cmd: >>$ThisEnv;$ChDir ${Conf["$act.cmd"]}<<"
-		    test "$HasStdIn" && TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all) || TmpAll=/dev/null
-		    if [ -v Conf['outerr'] ]; then
-			TmpOut=$(mktemp $TmpDir/$Prg-XXXXXXXX.out)
-			TmpErr=$(mktemp $TmpDir/$Prg-XXXXXXXX.err)
-			{ { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}"; } | tee $TmpOut; exit ${PIPESTATUS[0]}; } 2>&1 1>&3 | tee $TmpErr; } >$TmpAll 3>&1	# Yes we can!
-			xc=${PIPESTATUS[0]}		# THE exit code
-		    else
-			TmpOut=/dev/null
-			TmpErr=/dev/null
+		    TmpOut=
+		    TmpErr=
+		    TmpAll=
+		    if [ -z "$StdIns" -o "$StdIns" = 'all' ]; then
+			# Only 'all' (merge)
+			test "$StdIns" && TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all) || TmpAll=/dev/null
+			LogDbg "          using $TmpAll"
 			sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpAll 2>&1
 			xc=$?
+		    elif [ "$StdIns" = 'out' -o "$StdIns" = 'err' -o "$StdIns" = 'out err' ]; then
+			# No 'all' (split)
+			grep out <<<"$StdIns" >/dev/null && TmpOut=$(mktemp $TmpDir/$Prg-XXXXXXXX.out) || TmpOut=/dev/null
+			grep err <<<"$StdIns" >/dev/null && TmpErr=$(mktemp $TmpDir/$Prg-XXXXXXXX.err) || TmpOut=/dev/null
+			LogDbg "          using $TmpOut and $TmpErr"
+			sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpOut 2>$TmpErr
+			xc=$?
+		    else
+			# Mix (combo): prepare Tmp files
+			TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all)
+			grep out <<<"$StdIns" >/dev/null && TmpOut=$(mktemp $TmpDir/$Prg-XXXXXXXX.out)
+			grep err <<<"$StdIns" >/dev/null && TmpErr=$(mktemp $TmpDir/$Prg-XXXXXXXX.err)
+			# Different combo modes
+			if [ "$StdIns" = 'out all' ]; then
+			    LogDbg "          using $TmpOut and $TmpAll"
+			    { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&3; } | tee $TmpOut; } >$TmpAll 3>&1
+			    xc=${PIPESTATUS[0]}		# THE exit code
+			elif [ "$StdIns" = 'err all' ]; then
+			    LogDbg "          using $TmpErr and $TmpAll"
+			    { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&1 1>&3; } | tee $TmpErr; } >$TmpAll 3>&1
+			    xc=${PIPESTATUS[0]}		# THE exit code
+			else
+			    LogDbg "          using $TmpOut, $TmpErr and $TmpAll"
+			    { { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}"; } | tee $TmpOut; exit ${PIPESTATUS[0]}; } 2>&1 1>&3 | tee $TmpErr; } >$TmpAll 3>&1	# Yes we can!
+			    xc=${PIPESTATUS[0]}		# THE exit code
+			fi
 		    fi
 		    # base Env for all ends
 		    CondEnv="$FileEnv ${EnvPfx}CODE=$xc"
@@ -588,13 +618,11 @@ do
 
 			StdIn=/dev/null
 			if [ -v Conf["$end.stdin"] ]; then
-			    StdIn=$TmpAll
-			    if [ -v Conf['outerr'] ]; then
-				case "${Conf["$end.stdin"]}" in
-				    out)	StdIn=$TmpOut;;
-				    err)	StdIn=$TmpErr;;
-				esac
-			    fi
+			    case "${Conf["$end.stdin"]}" in
+				out)	StdIn=$TmpOut;;
+				err)	StdIn=$TmpErr;;
+				all)	StdIn=$TmpAll;;
+			    esac
 			fi
 			LogDbg "        running $end"
 			LogDbg "          cmd: >>$ThisEnv;$ChDir ${Conf["$end.cmd"]}<<"
@@ -605,6 +633,7 @@ do
 			    LogWarn "\"${Conf["$end.cmd"]}\" returned \"$Out\" (exit=$rc)"
 			fi
 		    done # } for jdx in ${Conf["$step.ends._keys"]}
+		    #   Now we can remove any Tmp files
 		    for f in $TmpOut $TmpErr $TmpAll
 		    do
 			test -f "$f" && rm -f "$f"	# Do not destroy /dev/null !
