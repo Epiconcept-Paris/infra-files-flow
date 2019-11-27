@@ -22,11 +22,15 @@ hosts:
         # required poll delay
         sleep: 60
 
-        # comment the following line to suppress debug log
-        debug: true
-
         # optional sanity check (against hostname)
         host: procom1
+
+        # specify the optional shell to use for cmd: values (actions, ends),
+        # for conds members and for the 'path' of 'file' logs. Default is 'sh'
+        shell: bash
+
+        # comment the next optional line to suppress debug logs (default false)
+        debug: true
 
         # --- Optional environment--------------------------------------
         #
@@ -113,7 +117,8 @@ hosts:
             type: file
             args:
               # path is required for 'file' type
-              path: /var/log/indird.log
+              # 'env' is available
+              path: /var/log/indird-$i_CONF.log
 
           default:
             desc: log to syslog

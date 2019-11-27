@@ -95,7 +95,7 @@ LogInfo()
 # params <message>
 LogDbg()
 {
-    test -v Conf['debug'] && LogMsg "$1" # 'debug'
+    test "${Conf['debug']}" = 'true' && LogMsg "$1" # 'debug'
 }
 
 #
@@ -147,7 +147,7 @@ ChkConf()
 	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
     done
     # Make sure that ${Conf['path']} exists
-    test -d "${Conf['path']}" || LogExit "directory '${Conf['path']}' does not exist" $ExNoPath
+    test -d "${Conf['path']}" || LogExit "in $Config for $Tag, path '${Conf['path']}' does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
     test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must have a numeric value, not '$val'"
@@ -160,10 +160,15 @@ ChkConf()
 	test "$Host" = "$val" || LogExit "in $Config for $Tag, host '$val' does not match system's '$Host'" $ExNotHost
     fi
 
+    #	shell: if param exists it must be known from 'command -v'
+    if [ -v Conf['shell'] ]; then
+	val=$(command -v "${Conf['shell']}") && Shell="$val" || LogExit "in $Config for $Tag, shell '${Conf['shell']}' is not valid" $ExNoPath
+    fi
+
     #	debug: if param exists, it must have value 'true'
     if [ -v Conf['debug'] ]; then
 	val="${Conf['debug']}"
-	test "$val" = 'true' || ConfErr "debug parameter has value '$val', not 'true'"
+	test "$val" = 'true' -o "$val" = 'false' || ConfErr "debug parameter has value '$val', not 'true' or 'false'"
     fi
 
     # Check for required dicts
@@ -425,6 +430,7 @@ command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 
 Tag=$1
 Host=$(hostname)
+Shell='sh'
 
 EnvPfx=
 CmdEnv=
@@ -463,6 +469,7 @@ trap SigTerm TERM
 trap SigUsr1 USR1
 LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
+test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --ready	# Notify the end of our startup phase
 
@@ -565,14 +572,14 @@ do
 			# Only 'all' (merge)
 			test "$StdIns" && TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all) || TmpAll=/dev/null
 			LogDbg "          using $TmpAll"
-			sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpAll 2>&1
+			$Shell -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpAll 2>&1
 			xc=$?
 		    elif [ "$StdIns" = 'out' -o "$StdIns" = 'err' -o "$StdIns" = 'out err' ]; then
 			# No 'all' (split)
 			grep out <<<"$StdIns" >/dev/null && TmpOut=$(mktemp $TmpDir/$Prg-XXXXXXXX.out) || TmpOut=/dev/null
 			grep err <<<"$StdIns" >/dev/null && TmpErr=$(mktemp $TmpDir/$Prg-XXXXXXXX.err) || TmpOut=/dev/null
 			LogDbg "          using $TmpOut and $TmpErr"
-			sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpOut 2>$TmpErr
+			$Shell -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" >$TmpOut 2>$TmpErr
 			xc=$?
 		    else
 			# Mix (combo): prepare Tmp files
@@ -582,15 +589,15 @@ do
 			# Different combo modes
 			if [ "$StdIns" = 'out all' ]; then
 			    LogDbg "          using $TmpOut and $TmpAll"
-			    { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&3; } | tee $TmpOut; } >$TmpAll 3>&1
+			    { { $Shell -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&3; } | tee $TmpOut; } >$TmpAll 3>&1
 			    xc=${PIPESTATUS[0]}		# THE exit code
 			elif [ "$StdIns" = 'err all' ]; then
 			    LogDbg "          using $TmpErr and $TmpAll"
-			    { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&1 1>&3; } | tee $TmpErr; } >$TmpAll 3>&1
+			    { { $Shell -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}" 2>&1 1>&3; } | tee $TmpErr; } >$TmpAll 3>&1
 			    xc=${PIPESTATUS[0]}		# THE exit code
 			else
 			    LogDbg "          using $TmpOut, $TmpErr and $TmpAll"
-			    { { { sh -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}"; } | tee $TmpOut; exit ${PIPESTATUS[0]}; } 2>&1 1>&3 | tee $TmpErr; } >$TmpAll 3>&1	# Yes we can!
+			    { { { $Shell -c "$ThisEnv;$ChDir ${Conf["$act.cmd"]}"; } | tee $TmpOut; exit ${PIPESTATUS[0]}; } 2>&1 1>&3 | tee $TmpErr; } >$TmpAll 3>&1	# Yes we can!
 			    xc=${PIPESTATUS[0]}		# THE exit code
 			fi
 		    fi
@@ -602,7 +609,7 @@ do
 		    do
 			cond=${Conf["$step.ends.$jdx.cond"]}
 			LogDbg "      end $jdx: check cond $cond"
-			sh -c "$CondEnv; ${Conf["conds.$cond"]}" >/dev/null 2>&1 || continue
+			$Shell -c "$CondEnv; ${Conf["conds.$cond"]}" >/dev/null 2>&1 || continue
 
 			end="ends.${Conf["$step.ends.$jdx.end"]}"
 			ThisEnv="$CondEnv"
@@ -626,7 +633,7 @@ do
 			fi
 			LogDbg "        running $end"
 			LogDbg "          cmd: >>$ThisEnv;$ChDir ${Conf["$end.cmd"]}<<"
-			Out=$(sh -c "$ThisEnv;$ChDir ${Conf["$end.cmd"]}" <$StdIn 2>&1)
+			Out=$($Shell -c "$ThisEnv;$ChDir ${Conf["$end.cmd"]}" <$StdIn 2>&1)
 			rc=$?
 			if [ $rc -ne 0 ]; then
 			    Out=$(<<<"$Out" tr '\n' '~' | sed -e 's/~$//' -e 's/~/<LF>/g')
@@ -646,7 +653,7 @@ do
 		    do
 			log="logs.${Conf["$step.logs.$jdx"]}"
 			if [ "${Conf["$log.type"]}" = 'file' ]; then
-			    logfile=$(sh -c "$ThisEnv; echo \"${Conf["$log.args.path"]}\"")
+			    logfile=$($Shell -c "$ThisEnv; echo \"${Conf["$log.args.path"]}\"")
 			    Stamp "$Msg" >>"$logfile"
 			else
 			    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$Msg"
