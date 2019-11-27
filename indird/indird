@@ -9,11 +9,11 @@
 Prg=$(basename $0)
 IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"
 eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"
-#echo "IndPfx=$IndPfx Config=$Config"; exit 0
 LogFile=/var/log/$Prg.log
-StampFmt='%Y-%m-%d %H:%M:%S'
-RunDir=/run
+RunDir=/run/$Prg
 TmpDir=/tmp
+
+StampFmt='%Y-%m-%d %H:%M:%S'
 MinSleep=5	# Minimum value of 'sleep' property
 
 # Fail exit codes
@@ -405,7 +405,7 @@ SigUsr1()
     done
     # Then re-read and re-check the config
     GetConf $Config $Tag
-    ChkConf $RunDir/$Prg
+    ChkConf $RunDir
 }
 
 SigTerm()
@@ -438,7 +438,7 @@ if [ "$2" = 'config' ]; then
     ConfigPaths
     exit 0
 fi
-ChkConf $RunDir/$Prg
+ChkConf $RunDir
 #echo "CmdEnv=[$CmdEnv]"; exit 0
 #
 #   Handle check utility: just exit now, display msg if tty
