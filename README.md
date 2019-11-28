@@ -125,7 +125,7 @@ Le fichier de configuration de `indird` est au format JSON. Au niveau principal,
 [indird/indird.conf]: indird/indird.conf "fichier local"
 
 La définition du projet a donné lieu à la rédaction de l'exemple de fichier de configuration en YAML [indird.yml][], pour trois hosts différents.
-Les nombreux commentaires du fichier, reprenant des parties de cette documentation, permet de situer celles-ci dans leur contexte.
+Les nombreux commentaires du fichier, reprenant des parties de cette documentation, permettent de situer celles-ci dans leur contexte.  
 Ce fichier YAML peut être transformé en JSON avec différents outils open-source, par exemple :
 
     A TERMINER
