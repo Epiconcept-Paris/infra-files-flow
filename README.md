@@ -124,7 +124,7 @@ Le fichier de configuration de `indird` est au format JSON. Au niveau principal,
 [indird.yml]: indird.yml "fichier local"
 [indird/indird.conf]: indird/indird.conf "fichier local"
 
-La définition du projet a donné lieu à la rédaction d'un exemple de fichier de configuration en YAML : [indird.yml][]
+La définition du projet a donné lieu à la rédaction de l'exemple de fichier de configuration en YAML [indird.yml][], pour trois hosts différents.
 Les nombreux commentaires du fichier, reprenant des parties de cette documentation, permet de situer celles-ci dans leur contexte.
 Ce fichier YAML peut être transformé en JSON avec différents outils open-source, par exemple :
 
@@ -140,30 +140,21 @@ Après lecture et vérification du fichier de configuration, `indird` entre dans
 indéfiniment (jusqu'à un arrêt par SIGTERM)
   sortir de 'sleep' (par fin du délai ou par 'kill') et sauver le dernier 'mtime' de `path`
   tant que `path` a été modifié ('mtime') depuis le dernier tour (de cette boucle)
-    pour toutes les règles membres de l'objet global `rules`
-      pour tous les fichiers correspondant au membre de l'objet global `filetypes` de la règle
+    pour toutes les `filetypes` membres de l'objet global `rules`
+      pour tous les fichiers correspondant à ce membre de `filetypes`
 	pour toutes les étapes de la règle
-	  lancer l'action de la règle
-	  pour toutes les fins (`ends`) de la règle
+	  lancer l'action de l'étape
+	  pour toutes les fins (`ends`) de l'étape
 	    vérifier si la condition `cond` de fin s'applique
 	    exécuter le `end` correspondant défini dans l'objet global `ends` des fins
-	  pour tous les (`logs`) de la règle
-	    logger le résultat de l'action de la règle
+	  pour tous les (`logs`) de l'étape
+	    logger le résultat de l'action de l'étape
 le notify envoyé par le service indirdwake fait sortir du 'sleep'
 ```
 
-## Proposed Indird config file (by TDE)
-
     A TERMINER
 
-As decided with CGD and CTY on 2019-01-09, here are some YAML config examples
-to be used by an `indird` daemon (as seen with CTY)
-
-The [indird.yml][] file contains three example configs derived from
-actual running file-flow setups.
-
-Data structures and comments in [indird.yml][] give an effective
-guideline for the implementation of the daemon.
+## Proposed Indird config file (by TDE)
 
 You can extract these configs (and check the file correctness) by running
 
