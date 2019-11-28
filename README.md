@@ -121,11 +121,16 @@ Le fichier de configuration de `indird` est au format JSON. Au niveau principal,
 
 ## Exemples de fichiers de configuration
 
-La définition du projet a donné lieu à la rédaction d'un exemple de fichier de configuration en YAML : [indird.yml]: ./indird.yml "fichier local"
+[indird.yml]: indird.yml "fichier local"
+[indird/indird.conf]: indird/indird.conf "fichier local"
+
+La définition du projet a donné lieu à la rédaction d'un exemple de fichier de configuration en YAML : [indird.yml][]
 Les nombreux commentaires du fichier, reprenant des parties de cette documentation, permet de situer celles-ci dans leur contexte.
 Ce fichier YAML peut être transformé en JSON avec différents outils open-source, par exemple :
 
-Le fichier [indird/indird.conf]: ./indird/indird.conf "fichier local" contient un exemple de fichier de configuration généré pour un des hosts de [indird.yml][]
+    A TERMINER
+
+Le fichier [indird/indird.conf][] contient un exemple de fichier de configuration généré pour un des hosts de [indird.yml][]
 
 ## Algorithme de fonctionnement
 
@@ -149,9 +154,7 @@ le notify envoyé par le service indirdwake fait sortir du 'sleep'
 
 ## Proposed Indird config file (by TDE)
 
-A TERMINER
-
-[indird.yml]: ./indird.yml "local file"
+    A TERMINER
 
 As decided with CGD and CTY on 2019-01-09, here are some YAML config examples
 to be used by an `indird` daemon (as seen with CTY)
