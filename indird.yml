@@ -154,7 +154,7 @@ hosts:
         #       hide(opt) is an optional boolean: if true, this step is ignored
         #       action(req) is any name member of dict actions
         #       ends(opt) is a list of members of the ends dict, in sequence
-        #       log(opt) is a list of members of the logs dict, in sequence
+        #       logs(opt) is a list of members of the logs dict, in sequence
         # Steps of a list are executed in sequence until an error occurs in action
 
         # yaml kludge, 'macros' is recognized and discarded by the daemon

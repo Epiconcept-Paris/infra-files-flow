@@ -104,7 +104,7 @@ LogDbg()
 # params <config-file> <tag>
 GetConf()
 {
-    # global Conf
+    # global Conf Prg
     local cnf err line tags
 
     err=$(mktemp)
@@ -138,7 +138,7 @@ GetConf()
 # params <rundir>
 ChkConf()
 {
-    # global Conf Config Tag EnvPfx CmdEnv
+    # global Conf Config Tag Prg EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
     # Check for required config parameters
@@ -147,28 +147,28 @@ ChkConf()
 	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
     done
     # Make sure that ${Conf['path']} exists
-    test -d "${Conf['path']}" || LogExit "in $Config for $Tag, path '${Conf['path']}' does not exist" $ExNoPath
+    test -d "${Conf['path']}" || LogExit "in $Config for $Tag, path \"${Conf['path']}\" does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
-    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must have a numeric value, not '$val'"
+    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must have a numeric value, not \"$val\""
     test "$val" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${val}s"
 
     # Check optional config parameters
     #   hostname: if param exists, it must have value $Host
     if [ -v Conf['host'] ]; then
 	val="${Conf['host']}"
-	test "$Host" = "$val" || LogExit "in $Config for $Tag, host '$val' does not match system's '$Host'" $ExNotHost
+	test "$Host" = "$val" || LogExit "in $Config for $Tag, host \"$val\" does not match system's \"$Host\"" $ExNotHost
     fi
 
     #	shell: if param exists it must be known from 'command -v'
     if [ -v Conf['shell'] ]; then
-	val=$(command -v "${Conf['shell']}") && Shell="$val" || LogExit "in $Config for $Tag, shell '${Conf['shell']}' is not valid" $ExNoPath
+	val=$(command -v "${Conf['shell']}") && Shell="$val" || LogExit "in $Config for $Tag, shell \"${Conf['shell']}\" is not valid" $ExNoPath
     fi
 
     #	debug: if param exists, it must have value 'true'
     if [ -v Conf['debug'] ]; then
 	val="${Conf['debug']}"
-	test "$val" = 'true' -o "$val" = 'false' || ConfErr "debug parameter has value '$val', not 'true' or 'false'"
+	test "$val" = 'true' -o "$val" = 'false' || ConfErr "debug parameter has value \"$val\", not 'true' or 'false'"
     fi
 
     # Check for required dicts
@@ -268,6 +268,11 @@ ChkConf()
 	    # action value must match a member of actions (dict)
 	    val="${Conf["$step.action"]}"
 	    test -v Conf["actions.$val.cmd"] || ConfErr "$step.action \"$val\" does not match any 'actions' member"
+	    if [ -v Conf["$step.hide"] ]; then
+		val="${Conf["$step.hide"]}"
+		test "$val" = 'true' -o "$val" = 'false' || ConfErr "$step.hide has value \"$val\", not 'true' or 'false'"
+	    fi
+
 	    # a step may have a list of ends
 	    for jdx in ${Conf["$step.ends._keys"]}
 	    do
@@ -395,28 +400,26 @@ ConfigPaths()
     done | sort
 }
 
-SigUsr1()
+GotSig()
 {
-    # global Config Conf Tag RunDir Prg
-    LogNote "Reloading $Config on SIGUSR1"
+    # global Signal SleepPID
+    local SIG
 
-    # We need to delete the old Conf, but we cannot use unset
-    # as we would then need to do a declare -A Conf, which
-    # cannot work here as it needs to be global.
-    # So instead we delete all keys in Conf
-    for key in "${!Conf[@]}"
-    do
-	unset Conf[$key]
-    done
-    # Then re-read and re-check the config
-    GetConf $Config $Tag
-    ChkConf $RunDir
+    SIG=$(tr '[a-z]' '[A-Z]' <<<$1)
+    LogNote "Received SIG$SIG"
+    Signal=$1
+    #	sleep was probably killed by our sig, but kill $SleepPID as a precaution
+    test "$SleepPID" && kill "$SleepPID" 2>/dev/null
 }
 
 SigTerm()
 {
-    LogNote "Exiting on SIGTERM"
-    exit 0
+    GotSig Term
+}
+
+SigUsr1()
+{
+    GotSig Usr1
 }
 
 #
@@ -465,6 +468,8 @@ fi
 #
 #   Trap signals and notify systemd we are done with our init
 #
+Signal=
+SleepPID=
 trap SigTerm TERM
 trap SigUsr1 USR1
 LogNote "Starting $Prg on ${Conf['path']} ================"
@@ -477,8 +482,27 @@ systemd-notify --ready	# Notify the end of our startup phase
 #------ Main loop ------------------------------------------------------
 #
 LastMod=0
+#   Loop until SIGTERM {
 while :
 do
+    #	Handle signals synchronously
+    if [ "$Signal" = 'Term' ]; then
+	LogNote "Exiting on SIGTERM"
+	break
+    elif [ "$Signal" = 'Usr1' ]; then
+	LogNote "Reloading $Config on SIGUSR1"
+
+	# Reset Conf
+	unset Conf
+	declare -A Conf
+
+	# Then re-read and re-check the config
+	GetConf $Config $Tag
+	ChkConf $RunDir
+
+	Signal=
+    fi
+
     # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
     # while dir touched since last loop
     #   loop on filetypes (rules members)
@@ -522,6 +546,10 @@ do
 		for idx in ${Conf["rules.$ft._keys"]}
 		do
 		    step="rules.$ft.$idx"
+		    if [ "${Conf["$step.hide"]}" = 'true' ]; then
+			LogDbg "    Discarding hidden $step"
+			continue
+		    fi
 		    test -v Conf["$step.desc"] && LogDbg "    Step $idx: ${Conf["$step.desc"]}"
 
 		    #   Run action, saving stdout/stderr and exit code
@@ -639,7 +667,8 @@ do
 			    Out=$(<<<"$Out" tr '\n' '~' | sed -e 's/~$//' -e 's/~/<LF>/g')
 			    LogWarn "\"${Conf["$end.cmd"]}\" returned \"$Out\" (exit=$rc)"
 			fi
-		    done # } for jdx in ${Conf["$step.ends._keys"]}
+		    done    # } Run any ends
+
 		    #   Now we can remove any Tmp files
 		    for f in $TmpOut $TmpErr $TmpAll
 		    do
@@ -652,25 +681,42 @@ do
 		    for jdx in ${Conf["$step.logs._keys"]}
 		    do
 			log="logs.${Conf["$step.logs.$jdx"]}"
+			LogDbg "      logging on $log"
 			if [ "${Conf["$log.type"]}" = 'file' ]; then
 			    logfile=$($Shell -c "$ThisEnv; echo \"${Conf["$log.args.path"]}\"")
 			    Stamp "$Msg" >>"$logfile"
 			else
 			    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$Msg"
 			fi
-		    done # } for jdx in ${Conf["$step.logs._keys"]}
+		    done    # } Run any logs
 
 		    # If our action failed, abort steps loop
-		    test "$xc" -eq 0 || break
-		done # } for idx in ${Conf["rules.$ft._keys"]}
+		    if [ "$xc" -ne 0 ]; then
+			LogDbg "      aborting $step as xc=$xc"
+			break
+		    fi
+		done #	} Loop on rule's steps
 		NbP=$((NbP + 1))
 		test "$Succ" && NbS=$((NbS + 1))
-	    done # } for file in $Files
-	done # } for ft in ${Conf['rules._keys']}
+
+		test "$Signal" && break
+	    done #  } Loop on matching files
+
+	    test "$Signal" && break
+	done #	} Loop on all 'rules' members
 	LogInfo "Processed $NbP file(s), $NbS successfully"
 	Mod=$(stat -c '%Y' "${Conf['path']}")
-    done # } while [ $Mod -gt $LastMod ]
-    LogDbg "Sleeping ${Conf['sleep']}s"
-    sleep ${Conf['sleep']} &
-    wait $!	# Trick to avoid stderr messages like Terminated
-done
+
+	test "$Signal" && break
+    done #  } Loop until dir untouched
+
+    if [ -z "$Signal" ]; then
+	LogDbg "Sleeping ${Conf['sleep']}s"
+	sleep ${Conf['sleep']} &
+	SleepPID=$!
+	wait $SleepPID	# Trick to avoid stderr messages like Terminated
+	SleepPID=
+    fi
+done	# } Loop until SIGTERM
+LogInfo "Done"
+exit 0
