@@ -41,14 +41,14 @@ Stamp()
 # params <message> <logger-level>
 LogMsg()
 {
-    # global isTty Stamp Logfile
+    # global isTty Logfile
     if [ "$isTty" ]; then
 	echo "$1" >&2
 	return
     fi
     Stamp "$1" >>$LogFile
-    # TODO: Should we use 'daemon' facility instead of 'user' ?
-    test "$2" && logger -p user.$2 "$1"
+    # Should we use 'user' facility instead of 'daemon' ?
+    test "$2" && logger -p daemon.$2 "$1"
 }
 
 # params none
@@ -71,7 +71,10 @@ LogExit()
 ConfErr()
 {
     # global Config Tag ExCfgErr
-    LogExit "in $Config for $Tag, $1" $ExCfgErr
+    local xc
+
+    test "$2" && xc=$2 || xc=$ExCfgErr
+    LogExit "in $Config for $Tag, $1" $xc
 }
 
 # params <message>
@@ -109,7 +112,7 @@ GetConf()
 
     err=$(mktemp)
     # Be really defensive (as we shall also need mktemp later)
-    test -f "$err" || LogExit "cannot create temp file ??" $ExCfgErr
+    test -f "$err" || LogExit "cannot create temp file $err ??" $ExCfgErr
 
     # Full-line # comments are allowed, \n changed to ;
     if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".$2" 2>$err); then
@@ -147,22 +150,22 @@ ChkConf()
 	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
     done
     # Make sure that ${Conf['path']} exists
-    test -d "${Conf['path']}" || LogExit "in $Config for $Tag, path \"${Conf['path']}\" does not exist" $ExNoPath
+    test -d "${Conf['path']}" || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
-    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must have a numeric value, not \"$val\""
+    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must be numeric, not \"$val\""
     test "$val" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${val}s"
 
     # Check optional config parameters
     #   hostname: if param exists, it must have value $Host
     if [ -v Conf['host'] ]; then
 	val="${Conf['host']}"
-	test "$Host" = "$val" || LogExit "in $Config for $Tag, host \"$val\" does not match system's \"$Host\"" $ExNotHost
+	test "$Host" = "$val" || ConfErr "host \"$val\" does not match system's \"$Host\"" $ExNotHost
     fi
 
     #	shell: if param exists it must be known from 'command -v'
     if [ -v Conf['shell'] ]; then
-	val=$(command -v "${Conf['shell']}") && Shell="$val" || LogExit "in $Config for $Tag, shell \"${Conf['shell']}\" is not valid" $ExNoPath
+	val=$(command -v "${Conf['shell']}") && Shell="$val" || ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath
     fi
 
     #	debug: if param exists, it must have value 'true'
@@ -310,16 +313,16 @@ ChkConf()
 	    #echo "path='$path' link='$link' conf='${Conf['path']}'"
 	    if [ "$link" != "${Conf['path']}" ]; then
 		if [ "$isRoot" ]; then
-		    LogNote "Removing previous '$path' link to '$link'"
+		    LogNote "removing previous '$path' link to '$link'"
 		    rm -f "$path"
 		else
 		    LogMsg "$Prg: NOTE: $path points to $link, not ${Conf['path']}!"
 		fi
 	    fi
 	else	# $path exists but is not a symbolic link
-	    test -d "$path" && LogExit "$path must be a symbolic link, not a directory" $ExNoPath
+	    test -d "$path" && ConfErr "path $path must be a symbolic link, not a directory" $ExNoPath
 	    if [ "$isRoot" ]; then
-		LogNote "Removing spurious file '$path'"
+		LogNote "removing spurious file '$path'"
 		rm -f "$path"
 	    else
 		LogMsg "$Prg: NOTE: $path exists and is not a symbolic link"
@@ -481,6 +484,27 @@ systemd-notify --ready	# Notify the end of our startup phase
 #
 #------ Main loop ------------------------------------------------------
 #
+# StepLogs is a function, easier to call more than once if ever needed
+#   params <key> <env> <msg>
+StepLogs()
+{
+    # global Conf Shell
+    local idx log logfile
+
+    test "$3" || { LogDbg "not enough StepLogs args"; return; }
+    for idx in ${Conf["$1._keys"]}
+    do
+	log="logs.${Conf["$1.$idx"]}"
+	LogDbg "      logging on $log"
+	if [ "${Conf["$log.type"]}" = 'file' ]; then
+	    logfile=$($Shell -c "$2; echo \"${Conf["$log.args.path"]}\"")
+	    Stamp "$3" >>"$logfile"
+	elif [ "${Conf["$log.type"]}" = 'syslog' ]; then
+	    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$3"
+	fi
+    done
+}
+
 LastMod=0
 #   Loop until SIGTERM {
 while :
@@ -520,7 +544,7 @@ do
 	NbS=0	# number of files with at least one success action
 	LastMod=$Mod
 	LogDbg "Examining "${Conf['path']}"..."
-	#   Loop on all 'rules' members {
+	#   Loop on all 'rules' members (filetypes) {
 	for ft in ${Conf['rules._keys']}
 	do
 	    LogInfo "Checking ${Conf["filetypes.$ft.desc"]}"
@@ -529,7 +553,7 @@ do
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
 		Files="$pat"
 	    else	# regexp
-		Files=$(ls | grep "$pat")	# TODO: test
+		Files=$(ls | grep "$pat")
 	    fi
 	    #   Loop on matching files {
 	    for file in $Files
@@ -552,7 +576,9 @@ do
 		    fi
 		    test -v Conf["$step.desc"] && LogDbg "    Step $idx: ${Conf["$step.desc"]}"
 
-		    #   Run action, saving stdout/stderr and exit code
+		    #
+		    #   Run our step's action, saving stdout/stderr and exit code
+		    #
 		    act="actions.${Conf["$step.action"]}"
 		    ThisEnv="$FileEnv"
 
@@ -596,6 +622,7 @@ do
 		    TmpOut=
 		    TmpErr=
 		    TmpAll=
+		    # Optimize temp file usage in our .cmd call
 		    if [ -z "$StdIns" -o "$StdIns" = 'all' ]; then
 			# Only 'all' (merge)
 			test "$StdIns" && TmpAll=$(mktemp $TmpDir/$Prg-XXXXXXXX.all) || TmpAll=/dev/null
@@ -632,7 +659,9 @@ do
 		    # base Env for all ends
 		    CondEnv="$FileEnv ${EnvPfx}CODE=$xc"
 
-		    #	Run any ends {
+		    #
+		    #	Run any step ends {
+		    #
 		    for jdx in ${Conf["$step.ends._keys"]}
 		    do
 			cond=${Conf["$step.ends.$jdx.cond"]}
@@ -667,7 +696,7 @@ do
 			    Out=$(<<<"$Out" tr '\n' '~' | sed -e 's/~$//' -e 's/~/<LF>/g')
 			    LogWarn "\"${Conf["$end.cmd"]}\" returned \"$Out\" (exit=$rc)"
 			fi
-		    done    # } Run any ends
+		    done    # } Run any step ends
 
 		    #   Now we can remove any Tmp files
 		    for f in $TmpOut $TmpErr $TmpAll
@@ -675,20 +704,11 @@ do
 			test -f "$f" && rm -f "$f"	# Do not destroy /dev/null !
 		    done
 
-		    #	Run any logs {
+		    #
+		    #	Handle any step logs
+		    #
 		    test "$xc" -eq 0 && { Ret='success'; Succ=y; } || Ret="failure (exit=$xc)"
-		    Msg="$Tag $act for $file returned $Ret"
-		    for jdx in ${Conf["$step.logs._keys"]}
-		    do
-			log="logs.${Conf["$step.logs.$jdx"]}"
-			LogDbg "      logging on $log"
-			if [ "${Conf["$log.type"]}" = 'file' ]; then
-			    logfile=$($Shell -c "$ThisEnv; echo \"${Conf["$log.args.path"]}\"")
-			    Stamp "$Msg" >>"$logfile"
-			else
-			    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$Msg"
-			fi
-		    done    # } Run any logs
+		    StepLogs "$step.logs" "$CondEnv" "$Tag $act for $file returned $Ret"
 
 		    # If our action failed, abort steps loop
 		    if [ "$xc" -ne 0 ]; then
@@ -696,6 +716,8 @@ do
 			break
 		    fi
 		done #	} Loop on rule's steps
+
+		# Count processed / succesful files
 		NbP=$((NbP + 1))
 		test "$Succ" && NbS=$((NbS + 1))
 
