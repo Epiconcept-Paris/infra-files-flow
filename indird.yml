@@ -230,6 +230,8 @@ hosts:
           fail:
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_home/HL7_fail
+          mail:
+            cmd: ":"    # Dummy, to be able to use the *hl7 macro
 
         logs: *logs
         conds: *conds
@@ -237,7 +239,7 @@ hosts:
         rules:
           hl7:
             - desc: rdvradio
-            # NOTE: to be completed
+              <<: *hl7
         # config for rdvradio instance on procom1 ends here
       # Actual indird.yml for procom1 ends here
 
@@ -267,12 +269,14 @@ hosts:
           fail:
             desc: move file to fail dir
             cmd: mv "$i_FILE" $i_basedir/fail/$i_name
+          mail:
+            cmd: ":"    # Dummy, to be able to use the *hl7 macro
         logs: *logs
         conds: *conds
         rules:
           hl7:
             - desc: rdvradio
-            # NOTE: to be completed
+              <<: *hl7
       # Actual indird.yml for profntd1 ends here
 
   profnt2:
@@ -303,11 +307,11 @@ hosts:
           hl7:
             - desc: check_sspdamoc
               action: check
-              # NOTE: add ends ?
+              # NOTE: no ends
               logs: [ debug, default ]
             - desc: run_sspdamoc
               action: run
-              # NOTE: add ends ?
+              # NOTE: no ends
               logs: [ debug, default ]
 
       # Actual indird.yml for profnt2 ends here
