@@ -70,11 +70,16 @@ LogExit()
 # params <message>
 ConfErr()
 {
-    # global ExCfgErr Config Tag
-    local xc
+    # global Config Tag isTty Prg ExCfgErr
+    local msg xc
+
+    #	If isTty and error code is specified (for failed checks
+    #	of external values 'host', 'path' & 'shell'), do not exit
+    msg="in $Config for $Tag, $1"
+    test "$isTty" -a "$2" && { echo "$Prg: $msg" >&2; return; }
 
     test "$2" && xc=$2 || xc=$ExCfgErr
-    LogExit "in $Config for $Tag, $1" $xc
+    LogExit "$msg" $xc
 }
 
 # params <message>
