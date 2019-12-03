@@ -7,8 +7,8 @@
 #	    which uses packages python-yaml python-docopt
 #
 Prg=$(basename $0)
-IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"
-eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"
+IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
+eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
 TmpDir=/tmp
@@ -70,7 +70,7 @@ LogExit()
 # params <message>
 ConfErr()
 {
-    # global Config Tag ExCfgErr
+    # global ExCfgErr Config Tag
     local xc
 
     test "$2" && xc=$2 || xc=$ExCfgErr
@@ -136,12 +136,36 @@ GetConf()
 }
 
 #
+#   Recursively parse JSON config data into Conf bash array
+#
+# params <JSON-obj> [ <obj-path> ]
+ParseConf()
+{
+    # global Conf
+    local JSON Path Key Val
+
+    JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
+    test "$2" && Path="$2."
+
+    while read -r Key Val
+    do
+        if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
+	    test "$Path$Key" = 'macros' && continue	# Skip this yaml kludge
+            Conf["$Path$Key._keys"]=$(jq -r 'keys|map(tostring)|join(" ")' <<< "$Val")
+            ParseConf "$Val" "$Path$Key"
+        else
+            Conf["$Path$Key"]="$Val"
+        fi
+    done <<< "$JSON"
+}
+
+#
 #   Check configuration
 #
 # params <rundir>
 ChkConf()
 {
-    # global Conf Config Tag Prg EnvPfx CmdEnv
+    # global Conf Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
     # Check for required config parameters
@@ -343,30 +367,6 @@ ChkConf()
 }
 
 #
-#   Recursively parse JSON config data into Conf bash array
-#
-# params <JSON-obj> [ <obj-path> ]
-ParseConf()
-{
-    # global Conf
-    local JSON Path Key Val
-
-    JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
-    test "$2" && Path="$2."
-
-    while read -r Key Val
-    do
-        if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
-	    test "$Path$Key" = 'macros' && continue	# Skip this yaml kludge
-            Conf["$Path$Key._keys"]=$(jq -r 'keys|map(tostring)|join(" ")' <<< "$Val")
-            ParseConf "$Val" "$Path$Key"
-        else
-            Conf["$Path$Key"]="$Val"
-        fi
-    done <<< "$JSON"
-}
-
-#
 #   Wakeup main process by killing its sleep command (if running)
 #
 # params <instance>
@@ -436,10 +436,12 @@ command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 
 Tag=$1
 Host=$(hostname)
-Shell='sh'
 
+# These global variables will be updated by ChkConf
+Shell='sh'
 EnvPfx=
 CmdEnv=
+
 declare -A Conf
 GetConf $Config $Tag	# Check that tag exists and load config
 #
@@ -481,10 +483,9 @@ test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --ready	# Notify the end of our startup phase
 
+# StepLogs is here as a function to be called more than once
+# within the main loop if ever needed in a future version
 #
-#------ Main loop ------------------------------------------------------
-#
-# StepLogs is a function, easier to call more than once if ever needed
 #   params <key> <env> <msg>
 StepLogs()
 {
@@ -505,6 +506,9 @@ StepLogs()
     done
 }
 
+#
+#------ Main loop ------------------------------------------------------
+#
 LastMod=0
 #   Loop until SIGTERM {
 while :
@@ -535,6 +539,7 @@ do
     #	      run action of step
     #	      loop on ends of step (using cond)
     #	      loop on logs of step
+    #	      if action failed, abort step loop
     #
     Mod=$(stat -c '%Y' "${Conf['path']}")
     #   Loop until dir untouched {
@@ -544,6 +549,7 @@ do
 	NbS=0	# number of files with at least one success action
 	LastMod=$Mod
 	LogDbg "Examining "${Conf['path']}"..."
+
 	#   Loop on all 'rules' members (filetypes) {
 	for ft in ${Conf['rules._keys']}
 	do
@@ -555,6 +561,7 @@ do
 	    else	# regexp
 		Files=$(ls | grep "$pat")
 	    fi
+
 	    #   Loop on matching files {
 	    for file in $Files
 	    do
