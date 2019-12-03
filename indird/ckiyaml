@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+#	ckiconf - Check a YAML file for indird config errors
+#
+Prg=`basename $0`
+
+# check args
+test "$1" && conf="$1" || { echo "Usage: $Prg <yaml-file>" >&2; exit 1; }
+
+# check if $conf exists
+test -f "$conf" || { echo "$Prg: cannot find YAML file \"$conf\"" >&2; exit 2; }
+
+# check if $conf is valid YAML
+yaml2json "$conf" >/dev/null || exit 3
+
+# check if $conf is has hosts
+yaml2json "$conf" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $conf" >&2; exit 4; }
+
+for host in `yaml2json $conf | jq -r '.hosts|keys[]'`
+do
+    tmp=`mktemp /tmp/XXXX-$host`
+    yaml2json "$conf" | jq ".hosts.$host.confs" >$tmp
+    echo "------- Checking $conf host $host -------"
+    for tag in `jq -r '.|keys[]' <$tmp`
+    do
+	INDIRD_CONF=$tmp indird $tag check
+    done
+    rm -f $tmp
+done
