@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Origin: https://github.com/drbild/json2yaml (commit df499b6)
+# Requires packages python-yaml and python-docopt
+#
 # Copyright 2015 David R. Bild
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,7 +37,9 @@ import docopt
 from collections import OrderedDict as odict
 from yaml import MappingNode
 
-__version__ = "1.1.2-SNAPSHOT"
+__version__ = "1.1.2-epi"
+
+sys.tracebacklimit = 0
 
 # Configure PyYaml to create ordered dicts
 _mapping_tag = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
