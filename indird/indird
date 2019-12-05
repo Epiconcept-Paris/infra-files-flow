@@ -3,8 +3,6 @@
 #	indird - Watch a directory for incoming files
 #
 #	requires package jq
-#	Yaml to JSON conversion may use	https://github.com/drbild/json2yaml.git
-#	    which uses packages python-yaml python-docopt
 #
 Prg=$(basename $0)
 IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
@@ -13,8 +11,8 @@ LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
 TmpDir=/tmp
 
-StampFmt='%Y-%m-%d %H:%M:%S'
-MinSleep=5	# Minimum value of 'sleep' property
+StampFmt='%Y-%m-%d %H:%M:%S'	# Date format for logs
+MinSleep=5			# Minimum value of the 'sleep' parameter
 
 # Fail exit codes
 ExUsage=1
@@ -55,7 +53,7 @@ LogMsg()
 Usage()
 {
     # global ExUsage
-    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check ]" 'crit'
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | nlcheck ]" 'crit'
     exit $ExUsage
 }
 
@@ -67,19 +65,22 @@ LogExit()
     exit $2
 }
 
-# params <message>
+# params <message> [ <exit-code> ]
 ConfErr()
 {
-    # global Config Tag isTty Prg ExCfgErr
-    local msg xc
+    # global Config Tag ExCfgErr
+    local xc
 
-    #	If isTty and error code is specified (for failed checks
-    #	of external values 'host', 'path' & 'shell'), do not exit
-    msg="in $Config for $Tag, $1"
-    test "$isTty" -a "$2" && { echo "$Prg: $msg" >&2; return; }
-
-    test "$2" && xc=$2 || xc=$ExCfgErr
-    LogExit "$msg" $xc
+    #	If an exit code is specified, the error is about a value
+    #	external to the config itself ('host', 'path' or 'shell')
+    if [ "$2" ]; then
+	# if we are in non-local check mode, just return
+	test "$ChkMode" = 'nlcheck' && return
+	xc=$2
+    else
+	xc=$ExCfgErr
+    fi
+    LogExit "in $Config for $Tag, $1" $xc
 }
 
 # params <message>
@@ -112,7 +113,7 @@ LogDbg()
 # params <config-file> <tag>
 GetConf()
 {
-    # global Conf Prg
+    # global Conf Prg Host
     local cnf err line tags
 
     err=$(mktemp)
@@ -138,6 +139,7 @@ GetConf()
 	tags=$(sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")')
 	LogExit "\"$2\" tag unknown in $1; known tags: $tags" $ExCfgErr
     fi
+    Host=$(hostname)	# Create/update global with latest value
 }
 
 #
@@ -170,7 +172,7 @@ ParseConf()
 # params <rundir>
 ChkConf()
 {
-    # global Conf Tag Prg Shell EnvPfx CmdEnv
+    # global Conf ChkMode Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
     # Check for required config parameters
@@ -179,7 +181,7 @@ ChkConf()
 	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
     done
     # Make sure that ${Conf['path']} exists
-    test -d "${Conf['path']}" || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
+    test -d "${Conf['path']}" -o "$ChkMode" = 'nlcheck' || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
     test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must be numeric, not \"$val\""
@@ -187,13 +189,13 @@ ChkConf()
 
     # Check optional config parameters
     #   hostname: if param exists, it must have value $Host
-    if [ -v Conf['host'] ]; then
+    if [ -v Conf['host'] -a "$ChkMode" != 'nlcheck' ]; then
 	val="${Conf['host']}"
 	test "$Host" = "$val" || ConfErr "host \"$val\" does not match system's \"$Host\"" $ExNotHost
     fi
 
     #	shell: if param exists it must be known from 'command -v'
-    if [ -v Conf['shell'] ]; then
+    if [ -v Conf['shell'] -a "$ChkMode" != 'nlcheck' ]; then
 	val=$(command -v "${Conf['shell']}") && Shell="$val" || ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath
     fi
 
@@ -332,6 +334,7 @@ ChkConf()
 	    done
 	done
     done
+    test "$ChkMode" = 'nlcheck' && return	# If non-local, we are done
 
     # Make sure our .path has its dir
     mkdir -p $1		# make our rundir if necessary
@@ -440,15 +443,8 @@ test "$1" || Usage
 command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 
 Tag=$1
-Host=$(hostname)
-
-# These global variables will be updated by ChkConf
-Shell='sh'
-EnvPfx=
-CmdEnv=
-
 declare -A Conf
-GetConf $Config $Tag	# Check that tag exists and load config
+GetConf $Config $Tag	# Check that $Tag exists, load config and set Host var
 #
 #   Handle config utility: output config paths without checks
 #
@@ -457,17 +453,29 @@ if [ "$2" = 'config' ]; then
     ConfigPaths
     exit 0
 fi
+
+test "$2" = 'check' -o "$2" = 'nlcheck' && ChkMode=$2
+
+# These global variables will be updated by ChkConf
+Shell='sh'
+EnvPfx=
+CmdEnv=
+
 ChkConf $RunDir
 #echo "CmdEnv=[$CmdEnv]"; exit 0
+
 #
-#   Handle check utility: just exit now, display msg if tty
+#   Handle check / nlcheck utilities: just exit now, display msg if tty
 #
-if [ "$2" = 'check' ]; then
+if [ "$2" = 'check' -o "$2" = 'nlcheck' ]; then
     test "$isTty" && echo "Config $Config for $Tag OK"
     exit 0
 fi
 test -z "$2" -o "$2" = 'wakeup' || Usage	# Reject unknown 2nd arg
+
+#   Ensure we are now root
 test "$isRoot" || LogExit "must be run as root" $ExNotRoot
+
 #
 #   Handle wakeup calls from our associated .path
 #
