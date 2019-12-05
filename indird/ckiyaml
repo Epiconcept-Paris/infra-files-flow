@@ -5,25 +5,32 @@
 Prg=`basename $0`
 
 # check args
-test "$1" && conf="$1" || { echo "Usage: $Prg <yaml-file>" >&2; exit 1; }
+test "$1" && yaml="$1" || { echo "Usage: $Prg <yaml-file>" >&2; exit 1; }
 
-# check if $conf exists
-test -f "$conf" || { echo "$Prg: cannot find YAML file \"$conf\"" >&2; exit 2; }
+# check if $yaml exists
+test -f "$yaml" || { echo "$Prg: cannot find YAML file \"$yaml\"" >&2; exit 2; }
 
-# check if $conf is valid YAML
-yaml2json "$conf" >/dev/null || exit 3
+# check if $yaml is valid YAML
+yaml2json "$yaml" >/dev/null || exit 3
 
-# check if $conf is has hosts
-yaml2json "$conf" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $conf" >&2; exit 4; }
+# check if $yaml is has hosts
+yaml2json "$yaml" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
 
-for host in `yaml2json $conf | jq -r '.hosts|keys[]'`
+work=`mktemp -d`
+test -d "$work" || { echo "Cannot create '$work' working directory ??" >&2; exit 5; }
+real=`realpath $1`
+cd $work
+for host in `yaml2json $real | jq -r '.hosts|keys[]'`
 do
-    tmp=`mktemp /tmp/XXXX-$host`
-    yaml2json "$conf" | jq ".hosts.$host.confs" >$tmp
-    echo "------- Checking $conf host $host -------"
-    for tag in `jq -r '.|keys[]' <$tmp`
+    conf=$host.conf
+    #	Extract $host config
+    yaml2json "$real" | jq ".hosts.$host.confs" >$conf
+    #	Check each tag in $conf
+    echo "------- Checking $yaml host $host -------"
+    for tag in `jq -r '.|keys[]' <$conf`
     do
-	INDIRD_CONF=$tmp indird $tag check
+	INDIRD_CONF=$conf indird $tag nlcheck	# use non-local check mode
     done
-    rm -f $tmp
+    rm -f $conf
 done
+rmdir $work

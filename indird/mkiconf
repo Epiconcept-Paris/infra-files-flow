@@ -10,20 +10,24 @@ IndentJSON()
 Prg=`basename $0`
 # check args
 test "$2" || { echo "Usage: $Prg <yaml-file> <host>" >&2; exit 1; }
+yaml=$1
+host=$2
 
-# check if $1 exists
-test -f "$1" || { echo "$Prg: cannot find YAML file \"$1\"" >&2; exit 2; }
+# check if $yaml exists
+test -f "$yaml" || { echo "$Prg: cannot find YAML file \"$yaml\"" >&2; exit 2; }
 
-# check if $1 is valid YAML
-yaml2json "$1" >/dev/null || exit 3
+# check if $yaml is valid YAML
+yaml2json "$yaml" >/dev/null || exit 3
 
-# check if $1 has hosts
-yaml2json "$1" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $1" >&2; exit 4; }
+# check if $yaml has hosts
+yaml2json "$yaml" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
 
-# check if $2 is host in $1
-yaml2json "$1" | jq -r '.hosts|keys[]' | grep "^$2\$" >/dev/null || { echo "$Prg: unknown host $2 in $1" >&2; echo "Available hosts:" >&2; yaml2json $1 | jq -r '.hosts|keys[]' | sed 's/^/    /' >&2; exit 5; }
+# check if $host is host in $yaml
+yaml2json "$yaml" | jq -r '.hosts|keys[]' | grep "^$host\$" >/dev/null || { echo "$Prg: unknown host $host in $yaml" >&2; echo "Available hosts:" >&2; yaml2json $yaml | jq -r '.hosts|keys[]' | sed 's/^/    /' >&2; exit 5; }
 
-yaml2json "$1" | jq ".hosts.$2.confs" | IndentJSON 4 | sed "1i\\
+# all ok, output our config
+yaml2json "$yaml" | jq ".hosts.$host.confs" | IndentJSON 4 | sed "1i\\
 #\\
-#	indird.conf for $2\\
+#	indird.conf for $host\\
+#	generated from $yaml\\
 #"
