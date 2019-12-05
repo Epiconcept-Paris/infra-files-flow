@@ -34,7 +34,7 @@ import sys, os
 import json, yaml
 import docopt
 
-from collections import OrderedDict as odict
+from collections import OrderedDict
 from yaml import MappingNode
 
 __version__ = "1.1.2-epi"
@@ -42,21 +42,57 @@ __version__ = "1.1.2-epi"
 sys.tracebacklimit = 0
 
 # Configure PyYaml to create ordered dicts
-_mapping_tag = yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG
+# using code taken from yaml/contructor.py
+
+def flatten_ordered_mapping(loader, node):
+    merge = []
+    index = 0
+    while index < len(node.value):
+	key_node, value_node = node.value[index]
+	if key_node.tag == u'tag:yaml.org,2002:merge':
+	    del node.value[index]
+	    if isinstance(value_node, MappingNode):
+		flatten_ordered_mapping(loader, value_node)
+		merge.extend(value_node.value)
+	    elif isinstance(value_node, SequenceNode):
+		submerge = []
+		for subnode in value_node.value:
+		    if not isinstance(subnode, MappingNode):
+			raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping for merging, but found %s" % subnode.id, subnode.start_mark)
+		    flatten_ordered_mapping(loader, subnode)
+		    submerge.append(subnode.value)
+		submerge.reverse()
+		for value in submerge:
+		    merge.extend(value)
+	    else:
+		raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping or list of mappings for merging, but found %s" % value_node.id, value_node.start_mark)
+
+	elif key_node.tag == u'tag:yaml.org,2002:value':
+	    key_node.tag = u'tag:yaml.org,2002:str'
+	    index += 1
+	else:
+	    index += 1
+
+	if merge:
+	    for val in merge:
+		node.value.insert(index, val)
+		index += 1
+	    merge = []
 
 def construct_ordered_mapping(loader, node, deep=False):
     if isinstance(node, MappingNode):
-        loader.flatten_mapping(node)
-    return odict(loader.construct_pairs(node, deep))
+        flatten_ordered_mapping(loader, node)
+    return OrderedDict(loader.construct_pairs(node, deep))
 
 def construct_yaml_ordered_map(loader, node, deep=False):
-    data = odict()
+    data = OrderedDict()
     yield data
     value = construct_ordered_mapping(loader, node, deep)
     data.update(value)
 
-yaml.add_constructor(_mapping_tag, construct_yaml_ordered_map)
+yaml.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_yaml_ordered_map)
 
+# Multipurpose open
 def safeopen(name, mode='r', buffering=1):
     if isinstance(name, file):
         return name
