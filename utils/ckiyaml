@@ -29,7 +29,7 @@ do
     echo "------- Checking $yaml host $host -------"
     for tag in `jq -r '.|keys[]' <$conf`
     do
-	INDIRD_CONF=$conf indird $tag nlcheck	# use non-local check mode
+	INDIRD_CONFIG=$conf indird $tag nlcheck	# use non-local check mode
     done
     rm -f $conf
 done

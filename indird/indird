@@ -6,7 +6,7 @@
 #
 Prg=$(basename $0)
 IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
-eval "Config=\${${IndPfx}CONF:-/etc/\$Prg.conf}"	# Derive default file from $Prg
+eval "Config=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
 TmpDir=/tmp
