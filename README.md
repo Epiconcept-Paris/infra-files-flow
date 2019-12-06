@@ -154,6 +154,16 @@ Dans le cas où l'exécution d'une commande `cmd` de `actions` risque d'être tr
 timeout 30 rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
 ```
 
+Si la commande `cmd` de `actions` d'une étape (step) échoue, les étapes suivantes ne seront pas exécutées.
+
+Pour l'instant, seul le résultat de la commande est loggé par `logs` (global et `rules`) avec le texte fixe suivant : "$Tag $act for $file returned $Ret" dans lequel les variables internes suivantes sont affectées par `indird` :
+  - `$Tag` est l'instance (*\<tag>*) de `indird`, par exemple `sspdamoc`
+  - `$act` est le chemin de config de l'action en cours, par exemple `actions.copy`
+  - `$file` est le nom du fichier en cours
+  - `$Ret` est le résultat de `$act` : `success` ou par exemple `failure (exit=3)`
+
+Une extension facile des logs est prévue dans `indird`, les `logs` d'une étape (step) étant traités par une fonction interne StepLogs.
+
 ## Exemples de fichiers de configuration
 
 [examples/indird.yml]: examples/indird.yml "fichier local"
