@@ -6,5 +6,7 @@
 
 # Todo
 
+* conf profntd1 à faire, avec script à jouer
 * utiliser l'inventaire 2019 par TDE
 * paths dont dépend le logiciel, à gérer en fonction des utilisateurs
+* intégrer et tester les accès ssh

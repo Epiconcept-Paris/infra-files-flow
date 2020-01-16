@@ -31,12 +31,14 @@
 
   vars:
     conffile: /etc/indird.conf.test #todo
+    srcdir: "{{ playbook_dir }}/../indird"
     bindir: /usr/local/bin
+    systemddir: /etc/systemd/system
   
   tasks:
     - name: dépot script
       copy: 
-        src: "{{ playbook_dir }}/../indird/indird"
+        src: "{{ srcdir }}/indird"
         dest: "{{ bindir }}"
         mode: 0755
       become: True
@@ -48,15 +50,20 @@
         mode: 0644
       become: True
 
-#todo
-#indird@.service   /etc/systemd/system
-#indirdwake@.service /etc/systemd/system
-#indirdwake@.path  /etc/systemd/system
+    - name: dépot services
+      copy: 
+        src: "{{ srcdir }}/{{ item }}"
+        dest: "{{ systemddir }}"
+        mode: 0644
+      with_items: 
+        - 'indird@.service'
+        - 'indirdwake@.service'
+        - 'indirdwake@.path'
+      become: True
 
     - name: setup service indird
-      #marche pas encore
       service:
         name: indird@{}
         enabled: False
-        state: started
+        state: stopped
       become: True
