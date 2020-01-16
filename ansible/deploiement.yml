@@ -45,6 +45,7 @@
         dest: "{{ bindir }}"
         mode: 0755
       become: True
+      register: chgscript
 
     - name: dépot configuration
       copy:
@@ -79,10 +80,10 @@
 
     - set_fact:
         state: reloaded
-      when: chgconf.changed == true
+      when: chgconf.changed == true or chgscript.changed == true
     - set_fact:
         state: started
-      when: chgconf.changed == false
+      when: chgconf.changed == false and chgscript.changed == false
 
     - name: setup services indird@service
       service:
