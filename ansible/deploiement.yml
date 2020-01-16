@@ -1,0 +1,62 @@
+---
+
+- hosts: 127.0.0.1
+  connection: local
+
+  tasks:
+    - name: test des chemins nécessaires
+      stat:
+        path: "{{ item }}"
+      with_items: 
+        - "{{ path_repo_infra_data_misc }}"
+        - "{{ path_repo_base }}"
+      register: path_exists
+
+    - name: assertion sur les chemins nécessaires
+      assert: 
+        that: "{{ item.stat.exists }} == true"
+        fail_msg: "{{ item.item }} manquant"
+        quiet: yes
+      with_items: "{{ path_exists.results }}"
+
+    - name: extraction configuration
+      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
+      changed_when: False
+      with_items: 
+        - procom1
+        - profntd1
+
+- hosts: procom1.admin2 profntd1.admin2
+  gather_facts: True
+
+  vars:
+    conffile: /etc/indird.conf.test #todo
+    bindir: /usr/local/bin
+  
+  tasks:
+    - name: dépot script
+      copy: 
+        src: "{{ playbook_dir }}/../indird/indird"
+        dest: "{{ bindir }}"
+        mode: 0755
+      become: True
+
+    - name: dépot configuration
+      copy:
+        src: "{{ tmpconffile }}{{ ansible_hostname }}"
+        dest: "{{ conffile }}"
+        mode: 0644
+      become: True
+
+#todo
+#indird@.service   /etc/systemd/system
+#indirdwake@.service /etc/systemd/system
+#indirdwake@.path  /etc/systemd/system
+
+    - name: setup service indird
+      #marche pas encore
+      service:
+        name: indird@{}
+        enabled: False
+        state: started
+      become: True
