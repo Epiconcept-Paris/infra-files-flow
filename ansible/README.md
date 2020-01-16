@@ -1,5 +1,7 @@
 # Usage
 
+* en attendant le changement d'inventaire : ```ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D```
+
 # Sources
 
 * déploiement manuel par TDE : https://github.com/Epiconcept-Paris/infra-journals-indexed/blob/master/indexed/all/tde/journal/2019-11-25_TDE_indird.md

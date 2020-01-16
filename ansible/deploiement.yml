@@ -5,6 +5,15 @@
   gather_facts: False
 
   tasks:
+    - name: test des binaires nécessaires
+      command: "which {{ item }}"
+      changed_when: false
+      failed_when: installed.rc not in [0]
+      register: installed
+      with_items: 
+        - jq
+        - yaml2json
+
     - name: test des chemins nécessaires
       stat:
         path: "{{ item }}"
