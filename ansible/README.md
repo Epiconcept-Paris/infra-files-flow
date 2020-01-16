@@ -6,7 +6,7 @@
 
 # Todo
 
-* conf profntd1 à faire, avec script à jouer
 * utiliser l'inventaire 2019 par TDE
-* paths dont dépend le logiciel, à gérer en fonction des utilisateurs
-* intégrer et tester les accès ssh
+* paths dont dépend le logiciel (aujourd'hui, infra-data-misc), à gérer en fonction des utilisateurs
+* intégrer et tester les accès ssh entre procom1 et les frontaux
+* intégrer la création des accès SFTP sur procom (récup depuis https://github.com/Epiconcept-Paris/infra-mini-plays, ou à minima rationnalisation des comptes)

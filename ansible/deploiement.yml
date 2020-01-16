@@ -2,6 +2,7 @@
 
 - hosts: 127.0.0.1
   connection: local
+  gather_facts: False
 
   tasks:
     - name: test des chemins nécessaires
@@ -32,7 +33,7 @@
   gather_facts: True
 
   vars:
-    conffile: /etc/indird.conf.test #todo
+    conffile: /etc/indird.conf
     srcdir: "{{ playbook_dir }}/../indird"
     bindir: /usr/local/bin
     systemddir: /etc/systemd/system
@@ -51,6 +52,7 @@
         dest: "{{ conffile }}"
         mode: 0644
       become: True
+      register: chgconf
 
     - name: dépot services
       copy: 
@@ -71,16 +73,21 @@
       become: True
 
     - name: lister les services
-      tags: ['dev']
       shell: "cat {{ conffile }} | jq -r 'keys|.[]'"
       register: services
       changed_when: False
 
+    - set_fact:
+        state: reloaded
+      when: chgconf.changed == true
+    - set_fact:
+        state: started
+      when: chgconf.changed == false
+
     - name: setup services indird@service
-      tags: ['dev']
       service:
         name: "indird@{{ item }}"
         enabled: False
-        state: started
+        state: "{{ state }}"
       with_items: "{{ services.stdout_lines }}"
       become: True
