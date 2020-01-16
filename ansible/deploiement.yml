@@ -26,6 +26,8 @@
         - procom1
         - profntd1
 
+#TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
+
 - hosts: procom1.admin2 profntd1.admin2
   gather_facts: True
 
@@ -66,4 +68,19 @@
         name: indird@{}
         enabled: False
         state: stopped
+      become: True
+
+    - name: lister les services
+      tags: ['dev']
+      shell: "cat {{ conffile }} | jq -r 'keys|.[]'"
+      register: services
+      changed_when: False
+
+    - name: setup services indird@service
+      tags: ['dev']
+      service:
+        name: "indird@{{ item }}"
+        enabled: False
+        state: started
+      with_items: "{{ services.stdout_lines }}"
       become: True
