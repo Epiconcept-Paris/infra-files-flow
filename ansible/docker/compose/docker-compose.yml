@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+
+  source:
+    build: ../build/source
+    container_name: source
+
+  destination:
+    build: ../build/destination
+    container_name: destination

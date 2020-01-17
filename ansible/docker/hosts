@@ -1,0 +1,5 @@
+[g_source]
+source			ansible_connection=docker
+
+[g_destination]
+destination		ansible_connection=docker
