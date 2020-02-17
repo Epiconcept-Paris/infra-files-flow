@@ -2,7 +2,7 @@
 
 - hosts: 127.0.0.1
   connection: local
-  tags: ['local', 'reconf']
+  tags: ['local', 'reconf', 'always']
   gather_facts: False
 
   tasks:
