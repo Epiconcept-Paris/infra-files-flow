@@ -2,6 +2,7 @@
 
 - hosts: 127.0.0.1
   connection: local
+  tags: ['local', 'reconf']
   gather_facts: False
 
   tasks:
@@ -26,7 +27,7 @@
       assert: 
         that: "{{ item.stat.exists }} == true"
         fail_msg: "{{ item.item }} manquant"
-        quiet: yes
+        #quiet: yes
       with_items: "{{ path_exists.results }}"
 
     - name: extraction configuration
@@ -46,6 +47,7 @@
     srcdir: "{{ playbook_dir }}/../indird"
     bindir: /usr/local/bin
     systemddir: /etc/systemd/system
+    chgscript: { changed: false }
   
   tasks:
     - name: dépot script
@@ -57,6 +59,7 @@
       register: chgscript
 
     - name: dépot configuration
+      tags: ['reconf']
       copy:
         src: "{{ tmpconffile }}{{ ansible_hostname }}"
         dest: "{{ conffile }}"
@@ -83,18 +86,24 @@
       become: True
 
     - name: lister les services
+      tags: ['reconf']
       shell: "cat {{ conffile }} | jq -r 'keys|.[]'"
       register: services
       changed_when: False
 
-    - set_fact:
+    - name: mode reload
+      tags: ['reconf']
+      set_fact:
         state: reloaded
       when: chgconf.changed == true or chgscript.changed == true
-    - set_fact:
+    - name: mode restart
+      tags: ['reconf']
+      set_fact:
         state: started
       when: chgconf.changed == false and chgscript.changed == false
 
     - name: setup services indird@service
+      tags: ['reconf']
       service:
         name: "indird@{{ item }}"
         enabled: False

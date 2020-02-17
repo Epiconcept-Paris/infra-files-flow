@@ -1,6 +1,25 @@
 # Usage
 
-* en attendant le changement d'inventaire : ```ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D```
+* en attendant le changement d'inventaire
+```
+ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D
+```
+
+* pour générer les configurations dans /tmp/
+```
+ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D -t local
+```
+
+* pour juste déployer une maj de conf (retirer le -C quand c'est validé)
+```
+ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -DC -t reconf
+```
+
+Note: l'exécution en Check va planter avec ce message, sans importance ici
+```
+fatal: [procom1.admin2]: FAILED! => {"msg": "'dict object' has no attribute 'stdout_lines'"}
+fatal: [profntd1.admin2]: FAILED! => {"msg": "'dict object' has no attribute 'stdout_lines'"}
+```
 
 # Docker de test
 
