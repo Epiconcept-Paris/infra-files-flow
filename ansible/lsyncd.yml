@@ -4,11 +4,9 @@
   gather_facts: false
 
   vars:
-    sshuser: &sshuser lad_test
-    home: &home "/space/home/{{ sshuser }}"
     comment: &comment utilisateur SSH pour LAD Test, rsync over ssh
     ssh_key_file: &ssh_key_file .ssh/rsync
-    tmpfile: &tmpfile /tmp/key
+    tmpfile: &tmpfile /tmp/keys
 
   tasks:
     - name: nettoyage
@@ -16,126 +14,135 @@
         path: "{{ tmpfile }}"
         state: absent
       changed_when: false
+
+
 
 - hosts: g_source
   gather_facts: false
   
   vars:
-    sshuser: *sshuser
-    home: *home
     comment: *comment
     ssh_key_file: *ssh_key_file
     tmpfile: *tmpfile
-    destip: 172.21.0.3 #todo à récupérer
 
   tasks:
+    - set_fact: 
+        users : [
+          {nom: 'lad_test', srv: 'preftn2.front2', region: 'GES'},
+          {nom: 'lad_test_mhu', srv: 'preftn2.front2', region: 'GES'},
+        ]
 
     - name: Creates user on com node ({{ inventory_hostname }})
       user:
-        name: "{{ sshuser }}"
+        name: "{{ item.nom }}"
         comment: *comment
         generate_ssh_key: True
         ssh_key_file: "{{ ssh_key_file }}"
-        ssh_key_comment: "{{ sshuser }}-rsync@{{ inventory_hostname }}"
-        home: '{{ home }}'
+        ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
+        home: '/space/home/{{ item.nom }}'
+        shell: '/usr/bin/mysecureshell'
+      with_items: "{{ users }}"
+      become: true
 
-    - name: Store file into /tmp/fetched/host.example.com/tmp/somefile
-      fetch:
-        src: "{{ home }}/{{ ssh_key_file }}.pub"
-        dest: "{{ tmpfile }}"
-        flat: yes
-      changed_when: false
+    - fail: msg="stop"
 
-    - name: configuration lsyncd
-      copy:
-        dest: "/etc/lsyncd.{{ sshuser }}.conf"
-        content: |
-          settings {
-                  logfile = "/var/log/lsyncd.{{ sshuser }}.log",
-                  statusFile = "/var/log/lsyncd.{{ sshuser }}.status.log",
-                  statusInterval = 1,
-                  insist = true
-          }
-           
-          source_list = { 
-                  "/space/source/un",
-                  "/space/source/deux",
-                  "/space/source/trois",
-           }
-           
-          for _, source in ipairs( source_list ) do
-           
-          sync {
-          default.rsync,
-                  delay=0,
-                  source=source,
-                  target="{{ destip }}:" .. source,
-                  rsync = {
-                          user = lad_test,
-                          archive = true,
-                          perms = true,
-                          owner = true,
-                          whole_file = true,
-                          rsh = "/usr/bin/ssh -p 22 -o StrictHostKeyChecking=no -i /space/home/lad_test/.ssh/rsync ",
-                          _extra = {"-a"}
-                  }
-          }
-          end
+#    - name: Store key on control
+#      fetch:
+#        src: "{{ home }}/{{ ssh_key_file }}.pub"
+#        dest: "{{ tmpfile }}"
+#        flat: yes
+#      changed_when: false
 
-# todo ajout de la clef et check strict
+#    - name: configuration lsyncd
+#      copy:
+#        dest: "/etc/lsyncd.{{ sshuser }}.conf"
+#        content: |
+#          settings {
+#                  logfile = "/var/log/lsyncd.{{ sshuser }}.log",
+#                  statusFile = "/var/log/lsyncd.{{ sshuser }}.status.log",
+#                  statusInterval = 1,
+#                  insist = true
+#          }
+#           
+#          source_list = { 
+#                  "/space/source/un",
+#                  "/space/source/deux",
+#                  "/space/source/trois",
+#           }
+#           
+#          for _, source in ipairs( source_list ) do
+#           
+#          sync {
+#          default.rsync,
+#                  delay=0,
+#                  source=source,
+#                  target="{{ destip }}:" .. source,
+#                  rsync = {
+#                          user = lad_test,
+#                          archive = true,
+#                          perms = true,
+#                          owner = true,
+#                          whole_file = true,
+#                          rsh = "/usr/bin/ssh -p 22 -o StrictHostKeyChecking=no -i /space/home/lad_test/.ssh/rsync ",
+#                          _extra = {"-a"}
+#                  }
+#          }
+#          end
 
-# todo lancer le service
-#    - name: setup service lsyncd
-#      service:
-#        name: lsyncd
-#        enabled: False
-#        state: stopped
-#      become: True
+## todo ajout de la clef et check strict
 
-- hosts: g_destination
-  gather_facts: false
+## todo lancer le service
+##    - name: setup service lsyncd
+##      service:
+##        name: lsyncd
+##        enabled: False
+##        state: stopped
+##      become: True
 
-  vars:
-    sshuser: *sshuser
-    home: *home
-    comment: *comment
-    ssh_key_file: *ssh_key_file
-    tmpfile: *tmpfile
+#- hosts: g_destination
+#  gather_facts: false
 
-  tasks:
+#  vars:
+#    sshuser: *sshuser
+#    home: *home
+#    comment: *comment
+#    ssh_key_file: *ssh_key_file
+#    tmpfile: *tmpfile
 
-    - name: Creates user on com node ({{ inventory_hostname }})
-      user:
-        name: "{{ sshuser }}"
-        comment: *comment
-        home: '{{ home }}'
-      #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
+#  tasks:
 
-    - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
-      authorized_key:
-        user: "{{ sshuser }}"
-        key: "{{ lookup('file', '{{ tmpfile }}') }}"
+#    - name: Creates user on com node ({{ inventory_hostname }})
+#      user:
+#        name: "{{ sshuser }}"
+#        comment: *comment
+#        home: '{{ home }}'
+#      #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
 
-    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
-      blockinfile:
-        path: /etc/ssh/sshd_config
-        block: |
-          Match User={{ sshuser }}
-            AllowGroups {{ sshuser }}
-            PasswordAuthentication no
-        marker: "# {mark} ANSIBLE {{ sshuser }}"
-      #todo: voir si on peut limiter ssh au dossier home du user
-      #todo reload openssh via sudo kill -SIGHUP $(pgrep -f "sshd -D")
-      
-- hosts: localhost
-  gather_facts: false
+#    - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
+#      authorized_key:
+#        user: "{{ sshuser }}"
+#        key: "{{ lookup('file', '{{ tmpfile }}') }}"
 
-  vars:
-    tmpfile: *tmpfile
+#    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
+#      blockinfile:
+#        path: /etc/ssh/sshd_config
+#        block: |
+#          Match User={{ sshuser }}
+#            AllowGroups {{ sshuser }}
+#            PasswordAuthentication no
+#        marker: "# {mark} ANSIBLE {{ sshuser }}"
+#      #todo: voir si on peut limiter ssh au dossier home du user
+#      #todo reload openssh via sudo kill -SIGHUP $(pgrep -f "sshd -D")
+#      
+#- hosts: localhost
+#  gather_facts: false
 
-  tasks:
-    - name: nettoyage
-      file: 
-        path: "{{ tmpfile }}"
-        state: absent
-      changed_when: false
+#  vars:
+#    tmpfile: *tmpfile
+
+#  tasks:
+#    - name: nettoyage
+#      file: 
+#        path: "{{ tmpfile }}"
+#        state: absent
+#      changed_when: false

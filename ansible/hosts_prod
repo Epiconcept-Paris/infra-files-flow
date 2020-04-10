@@ -1,0 +1,8 @@
+[all:vars]
+ansible_sudo_pass="{{ lookup('pipe', 'pass sudo/nodes') }}"
+
+[g_source]
+procom1
+
+[g_destination]
+prefnt2
