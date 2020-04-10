@@ -1,0 +1,31 @@
+settings {
+        logfile = "/var/log/lsyncd.{{ item.nom }}.log",
+        statusFile = "/var/log/lsyncd.{{ item.nom }}.status.log",
+        statusInterval = 1,
+        insist = true
+}
+ 
+source_list = { 
+{% for source in item.sources %}
+        "{{ source }}",
+{% endfor %}
+}
+ 
+for _, source in ipairs( source_list ) do
+ 
+sync {
+default.rsync,
+        delay=0,
+        source=source,
+        target="{{ item.srv }}:" .. source,
+        rsync = {
+                user = {{ item.nom }},
+                archive = true,
+                perms = true,
+                owner = true,
+                whole_file = true,
+                rsh = "/usr/bin/ssh -p 22 -o StrictHostKeyChecking=no -i /space/home/{{ item.nom }}/.ssh/rsync ",
+                _extra = {"-a"}
+        }
+}
+end

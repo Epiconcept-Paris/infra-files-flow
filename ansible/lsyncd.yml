@@ -6,16 +6,24 @@
   vars:
     comment: &comment utilisateur SSH pour LAD Test, rsync over ssh
     ssh_key_file: &ssh_key_file .ssh/rsync
-    tmpfile: &tmpfile /tmp/keys
+    tmpdir: &tmpdir /tmp/keys
+    users : &users [
+      {nom: 'lad_lsyncd_preprod', srv: 'preftn2.front2', region: 'GES', sources: [
+        '/space/home/lad_test',
+        '/space/home/lad_test_mhu',
+      ]},
+    ]
 
   tasks:
     - name: nettoyage
       file: 
-        path: "{{ tmpfile }}"
+        path: "{{ tmpdir }}"
         state: absent
-      changed_when: false
 
-
+    - name: création dossier
+      file: 
+        path: "{{ tmpdir }}"
+        state: directory
 
 - hosts: g_source
   gather_facts: false
@@ -23,14 +31,17 @@
   vars:
     comment: *comment
     ssh_key_file: *ssh_key_file
-    tmpfile: *tmpfile
+    tmpdir: *tmpdir
+    users : *users
+
+  #todo ? https://github.com/guard/listen/wiki/Increasing-the-amount-of-inotify-watchers
 
   tasks:
-    - set_fact: 
-        users : [
-          {nom: 'lad_test', srv: 'preftn2.front2', region: 'GES'},
-          {nom: 'lad_test_mhu', srv: 'preftn2.front2', region: 'GES'},
-        ]
+    - name: installation paquets
+      apt:
+        name: lsyncd
+        state: present
+      become: true
 
     - name: Creates user on com node ({{ inventory_hostname }})
       user:
@@ -40,109 +51,103 @@
         ssh_key_file: "{{ ssh_key_file }}"
         ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
         home: '/space/home/{{ item.nom }}'
-        shell: '/usr/bin/mysecureshell'
+        shell: '/usr/bin/false'
       with_items: "{{ users }}"
       become: true
 
-    - fail: msg="stop"
+    - name: Store key on control
+      fetch:
+        src: '/space/home/{{ item.nom }}/{{ ssh_key_file }}.pub'
+        dest: "{{ tmpdir }}/{{ item.nom }}"
+        flat: yes
+      with_items: "{{ users }}"
+      become: true
 
-#    - name: Store key on control
-#      fetch:
-#        src: "{{ home }}/{{ ssh_key_file }}.pub"
-#        dest: "{{ tmpfile }}"
-#        flat: yes
-#      changed_when: false
+    - name: configuration lsyncd
+      template:
+        src: lsyncd.conf.yml
+        dest: "/etc/lsyncd.{{ item.nom }}.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      with_items: "{{ users }}"
+      become: true
 
-#    - name: configuration lsyncd
-#      copy:
-#        dest: "/etc/lsyncd.{{ sshuser }}.conf"
-#        content: |
-#          settings {
-#                  logfile = "/var/log/lsyncd.{{ sshuser }}.log",
-#                  statusFile = "/var/log/lsyncd.{{ sshuser }}.status.log",
-#                  statusInterval = 1,
-#                  insist = true
-#          }
-#           
-#          source_list = { 
-#                  "/space/source/un",
-#                  "/space/source/deux",
-#                  "/space/source/trois",
-#           }
-#           
-#          for _, source in ipairs( source_list ) do
-#           
-#          sync {
-#          default.rsync,
-#                  delay=0,
-#                  source=source,
-#                  target="{{ destip }}:" .. source,
-#                  rsync = {
-#                          user = lad_test,
-#                          archive = true,
-#                          perms = true,
-#                          owner = true,
-#                          whole_file = true,
-#                          rsh = "/usr/bin/ssh -p 22 -o StrictHostKeyChecking=no -i /space/home/lad_test/.ssh/rsync ",
-#                          _extra = {"-a"}
-#                  }
-#          }
-#          end
 
-## todo ajout de la clef et check strict
+- hosts: g_destination
+  gather_facts: false
 
-## todo lancer le service
-##    - name: setup service lsyncd
-##      service:
-##        name: lsyncd
-##        enabled: False
-##        state: stopped
-##      become: True
+  vars:
+    users : *users
+    comment: *comment
+    tmpdir: *tmpdir
 
-#- hosts: g_destination
-#  gather_facts: false
+  tasks:
 
-#  vars:
-#    sshuser: *sshuser
-#    home: *home
-#    comment: *comment
-#    ssh_key_file: *ssh_key_file
-#    tmpfile: *tmpfile
+    - name: Creates user on com node ({{ inventory_hostname }})
+      user:
+        name: "{{ item.nom }}"
+        home: '/space/home/{{ item.nom }}'
+        comment: *comment
+      #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
+      with_items: "{{ users }}"
+      become: true
 
-#  tasks:
+    - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
+      authorized_key:
+        user: "{{ item.nom }}"
+        key: "{{ lookup('file', '{{ tmpdir }}/{{ item.nom }}') }}"
+      with_items: "{{ users }}"
+      become: true
 
-#    - name: Creates user on com node ({{ inventory_hostname }})
-#      user:
-#        name: "{{ sshuser }}"
-#        comment: *comment
-#        home: '{{ home }}'
-#      #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
+    #todo: voir si on peut limiter ssh au dossier home du user
+    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
+      blockinfile:
+        path: /etc/ssh/sshd_config
+        block: |
+          Match User={{ item.nom }}
+            AllowGroups {{ item.nom }}
+            PasswordAuthentication no
+        marker: "# {mark} ANSIBLE {{ item.nom }}"
+      with_items: "{{ users }}"
+      become: true
+      register: out_confssh
 
-#    - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
-#      authorized_key:
-#        user: "{{ sshuser }}"
-#        key: "{{ lookup('file', '{{ tmpfile }}') }}"
+    - name: reload sshd
+      service: 
+        name: ssh
+        state: restarted
+      become: true
+      when: out_confssh.changed
 
-#    - name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
-#      blockinfile:
-#        path: /etc/ssh/sshd_config
-#        block: |
-#          Match User={{ sshuser }}
-#            AllowGroups {{ sshuser }}
-#            PasswordAuthentication no
-#        marker: "# {mark} ANSIBLE {{ sshuser }}"
-#      #todo: voir si on peut limiter ssh au dossier home du user
-#      #todo reload openssh via sudo kill -SIGHUP $(pgrep -f "sshd -D")
-#      
-#- hosts: localhost
-#  gather_facts: false
+- hosts: localhost
+  gather_facts: false
 
-#  vars:
-#    tmpfile: *tmpfile
+  vars:
+    tmpdir: *tmpdir
 
-#  tasks:
-#    - name: nettoyage
-#      file: 
-#        path: "{{ tmpfile }}"
-#        state: absent
-#      changed_when: false
+  tasks:
+    - name: nettoyage
+      file: 
+        path: "{{ tmpdir }}"
+        state: absent
+      changed_when: false
+
+- hosts: g_source
+  gather_facts: false
+  
+  vars:
+    comment: *comment
+    ssh_key_file: *ssh_key_file
+    tmpdir: *tmpdir
+    users : *users
+
+  tasks:
+
+    # todo lancer le service, et donc setup avant 
+    - name: setup service lsyncd
+      service:
+        name: lsyncd
+        enabled: False
+        state: started
+      become: True
