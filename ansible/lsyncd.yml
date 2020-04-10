@@ -8,7 +8,7 @@
     ssh_key_file: &ssh_key_file .ssh/rsync
     tmpdir: &tmpdir /tmp/keys
     users : &users [
-      {nom: 'lad_lsyncd_preprod', srv: 'preftn2.front2', region: 'GES', sources: [
+      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.front2', region: 'GES', sources: [
         '/space/home/lad_test',
         '/space/home/lad_test_mhu',
       ]},
@@ -62,6 +62,12 @@
         flat: yes
       with_items: "{{ users }}"
       become: true
+
+#gérer la route réseau entre procom1 et prefnt2
+#gérer les paths, cf lsyncd.lad_lsyncd_preprod.conf déployé
+#source="/space/home/" .. source,
+#target="prefnt2.front2:" .. "/space/applisdata/esisdoccu/GES/" .. source,
+#filtrer, sync seulement les fichiers non système:wiki
 
     - name: configuration lsyncd
       template:
