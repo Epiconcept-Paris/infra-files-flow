@@ -7,8 +7,10 @@
     comment: &comment utilisateur SSH pour LAD Test, rsync over ssh
     ssh_key_file: &ssh_key_file .ssh/rsync
     tmpdir: &tmpdir /tmp/keys
+    confdir: &confdir /etc/lsyncd
+    confdird: &confdird "{{ confdir }}/conf.d"
     users : &users [
-      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', region: 'GES', sources: [
+      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', region: 'GES', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
         '/space/home/lad_test',
         '/space/home/lad_test_mhu',
       ]},
@@ -34,6 +36,8 @@
     ssh_key_file: *ssh_key_file
     tmpdir: *tmpdir
     users : *users
+    confdir: *confdir
+    confdird: *confdird
 
   #todo ? https://github.com/guard/listen/wiki/Increasing-the-amount-of-inotify-watchers
 
@@ -70,15 +74,33 @@
 #target="prefnt2.front2:" .. "/space/applisdata/esisdoccu/GES/" .. source,
 #filtrer, sync seulement les fichiers non système:wiki
 
-    - name: configuration lsyncd
+    - file: 
+        path: "{{ confdird }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      with_items: [ confdir, confdird ]
+      become: true
+
+    - name: configuration lsyncd pour chaque flux
       template:
-        src: lsyncd.conf.yml
-        dest: "/etc/lsyncd.{{ item.nom }}.conf"
+        src: lsyncd.item.conf.j2
+        dest: "{{ confdird }}/{{ item.nom }}.conf"
         owner: root
         group: root
         mode: '0644'
       with_items: "{{ users }}"
       become: true
+
+    - name: configuration lsyncd centrale
+      template:
+        src: lsyncd.conf.j2
+        dest: "{{ confdir }}/lsyncd.conf.lua"
+        owner: root
+        group: root
+        mode: '0644'
+      become: true      
 
 - hosts: g_destination
   gather_facts: false

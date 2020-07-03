@@ -1,0 +1,8 @@
+local confdir = '{{ confdird }}/'
+local entries = readdir( confdir )
+
+for name, isdir in pairs( entries ) do
+    if not isdir then
+        dofile( confdir .. name )
+    end
+end

@@ -1,3 +1,8 @@
+function basename(str)
+        local name = string.gsub(str, "(.*/)(.*)", "%2")
+        return name
+end
+
 settings {
         logfile = "/var/log/lsyncd.{{ item.nom }}.log",
         statusFile = "/var/log/lsyncd.{{ item.nom }}.status.log",
@@ -17,14 +22,13 @@ sync {
 default.rsync,
         delay=0,
         source=source,
-        target="{{ item.srv }}:" .. source,
+        target="{{ item.srv }}:{{ item.basedir }}/" .. basename(source),
         rsync = {
-                user = {{ item.nom }},
                 archive = true,
                 perms = true,
                 owner = true,
                 whole_file = true,
-                rsh = "/usr/bin/ssh -p 22 -o StrictHostKeyChecking=no -i /space/home/{{ item.nom }}/.ssh/rsync ",
+                rsh = "/usr/bin/ssh -l {{ item.nom }} -p 22 -o StrictHostKeyChecking=no -i /space/home/{{ item.nom }}/.ssh/rsync ",
                 _extra = {"-a"}
         }
 }
