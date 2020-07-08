@@ -1,3 +1,6 @@
+#TODO bascule sur groupe www-data non testé en déploiement, correction faite à la main, à re-tester
+#TODO s'assurer que le groupe www-data a le droit de rwx sur les dossiers via la conf lsyncd
+
 ---
 
 - hosts: localhost
@@ -115,6 +118,8 @@
     - name: Creates user on com node ({{ inventory_hostname }})
       user:
         name: "{{ item.nom }}"
+        group: www-data
+        groups: "{{ item.nom }}"
         home: '/space/home/{{ item.nom }}'
         comment: *comment
       #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
