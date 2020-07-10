@@ -1,5 +1,6 @@
 #TODO bascule sur groupe www-data non testé en déploiement, correction faite à la main, à re-tester
 #TODO s'assurer que le groupe www-data a le droit de rwx sur les dossiers via la conf lsyncd
+#BUG on regénère les clefs à chaque tour non ?
 
 ---
 
@@ -13,9 +14,12 @@
     confdir: &confdir /etc/lsyncd
     confdird: &confdird "{{ confdir }}/conf.d"
     users : &users [
-      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', region: 'GES', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
-        '/space/home/lad_test',
-        '/space/home/lad_test_mhu',
+#      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
+#        '/space/home/lad_test',
+#        '/space/home/lad_test_mhu',
+#      ]},
+      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/', sources: [
+        '/space/home/infra_lsyncd_test',
       ]},
     ]
 
@@ -51,6 +55,11 @@
         state: present
       become: true
 
+    - group:
+        name: "{{ item.nom }}"
+      with_items: "{{ users }}"
+      become: true
+
     - name: Creates user on com node ({{ inventory_hostname }})
       user:
         name: "{{ item.nom }}"
@@ -59,7 +68,7 @@
         ssh_key_file: "{{ ssh_key_file }}"
         ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
         home: '/space/home/{{ item.nom }}'
-        shell: '/usr/bin/false'
+        shell: '/usr/bin/false' #existe pas mais c'est volontaire
       with_items: "{{ users }}"
       become: true
 
@@ -70,12 +79,6 @@
         flat: yes
       with_items: "{{ users }}"
       become: true
-
-#gérer la route réseau entre procom1 et prefnt2
-#gérer les paths, cf lsyncd.lad_lsyncd_preprod.conf déployé
-#source="/space/home/" .. source,
-#target="prefnt2.front2:" .. "/space/applisdata/esisdoccu/GES/" .. source,
-#filtrer, sync seulement les fichiers non système:wiki
 
     - file: 
         path: "{{ confdird }}"
@@ -115,7 +118,12 @@
 
   tasks:
 
-    - name: Creates user on com node ({{ inventory_hostname }})
+    - group:
+        name: "{{ item.nom }}"
+      with_items: "{{ users }}"
+      become: true
+
+    - name: Creates user on fnt node ({{ inventory_hostname }})
       user:
         name: "{{ item.nom }}"
         group: www-data
