@@ -1,6 +1,8 @@
 #TODO bascule sur groupe www-data non testé en déploiement, correction faite à la main, à re-tester
 #TODO s'assurer que le groupe www-data a le droit de rwx sur les dossiers via la conf lsyncd
-#BUG on regénère les clefs à chaque tour non ?
+#BUG on transfère la clef à chaque tour 
+#TODO variabiliser les commentaires
+#TODO exclure .ssh/
 
 ---
 
@@ -14,13 +16,13 @@
     confdir: &confdir /etc/lsyncd
     confdird: &confdird "{{ confdir }}/conf.d"
     users : &users [
-#      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
-#        '/space/home/lad_test',
-#        '/space/home/lad_test_mhu',
-#      ]},
-      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/', sources: [
-        '/space/home/infra_lsyncd_test',
+      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
+        '/space/home/lad_test',
+        '/space/home/lad_test_mhu',
       ]},
+#      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/', sources: [
+#        '/space/home/infra_lsyncd_test',
+#      ]},
     ]
 
   tasks:

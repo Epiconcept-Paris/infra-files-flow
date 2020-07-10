@@ -19,17 +19,19 @@ source_list = {
 for _, source in ipairs( source_list ) do
  
 sync {
-default.rsync,
+        default.rsync,
         delay=0,
         source=source,
         target="{{ item.srv }}:{{ item.basedir }}/" .. basename(source),
+        delete = false,
+        exclude = { '/.ssh' },
         rsync = {
                 archive = true,
                 perms = true,
                 owner = true,
                 whole_file = true,
                 rsh = "/usr/bin/ssh -l {{ item.nom }} -p 22 -o StrictHostKeyChecking=no -i /space/home/{{ item.nom }}/.ssh/rsync ",
-                _extra = {"-a"}
+                _extra = {"-a", "--remove-source-files"}
         }
 }
 end
