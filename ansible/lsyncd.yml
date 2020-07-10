@@ -4,7 +4,7 @@
 #TODO variabiliser les commentaires
 #TODO exclure .ssh/
 #TODO backup de tout ce qui est déposé, avant transfert (et donc suppression de procom1)
-
+#TODO etcci 
 
 #sources
 #https://unix.stackexchange.com/questions/519910/lsyncd-how-to-include-specific-directories-and-exclude-rest-of-all-directories
