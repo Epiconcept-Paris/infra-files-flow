@@ -3,6 +3,7 @@
 #BUG on transfère la clef à chaque tour 
 #TODO variabiliser les commentaires
 #TODO exclure .ssh/
+#TODO backup de tout ce qui est déposé, avant transfert (et donc suppression de procom1)
 
 ---
 
