@@ -1,3 +1,4 @@
+#TODO ne créer les users que sur les frontaux de dest prévus (pour l'instant tout user est créé sur tous les frontaux concernés)
 #TODO bascule sur groupe www-data non testé en déploiement, correction faite à la main, à re-tester
 #TODO s'assurer que le groupe www-data a le droit de rwx sur les dossiers via la conf lsyncd
 #BUG on transfère la clef à chaque tour 
