@@ -49,6 +49,25 @@ lsyncd -nodaemon /etc/lsyncd.lad_test.conf
 
 # Todo
 
+* intégrer la gestion des liens
+```
+(preprod front 2)cedric@prefnt2:/space/applisdata/esisdoccu/LAD_RP$ ls -lha
+total 8.0K
+drwxr-xr-x 2 www-data www-data 4.0K Jul  7 15:44 .
+drwxr-xr-x 6 www-data www-data 4.0K Jul  7 15:42 ..
+lrwxrwxrwx 1 www-data www-data   39 Jul  7 15:44 lad_test -> /space/home/lad_lsyncd_preprod/lad_test
+lrwxrwxrwx 1 www-data www-data   44 Jul  7 15:44 lad_test_mhu -> /space/home/lad_lsyncd_preprod/lad_test_mhu/
+
+cedric@profntd1:/space/applisdata/esisdoccu$ sudo -u www-data mkdir /space/applisdata/esisdoccu/LAD_RP
+cedric@profntd1:/space/applisdata/esisdoccu$ sudo -u www-data ln -s /space/home/lad_lsyncd_prod/LADDOCCU38/ /space/applisdata/esisdoccu/LAD_RP/
+
+cedric@profntd1:/space/applisdata/esisdoccu/LAD_RP$ ls -lh
+total 0
+lrwxrwxrwx 1 www-data www-data 39 Sep  4 16:45 LADDOCCU38 -> /space/home/lad_lsyncd_prod/LADDOCCU38/
+cedric@profntd1:/space/applisdata/esisdoccu/LAD_RP$ ls LADDOCCU38/KU/RP/
+cedric
+```
+
 * utiliser l'inventaire 2019 par TDE
 * paths dont dépend le logiciel (aujourd'hui, infra-data-misc), à gérer en fonction des utilisateurs
 * intégrer et tester les accès ssh entre procom1 et les frontaux
