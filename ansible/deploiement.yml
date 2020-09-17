@@ -27,7 +27,7 @@
       assert: 
         that: "{{ item.stat.exists }} == true"
         fail_msg: "{{ item.item }} manquant"
-        #quiet: yes
+        quiet: yes
       with_items: "{{ path_exists.results }}"
 
     - name: extraction configuration
