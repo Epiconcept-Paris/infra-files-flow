@@ -1,4 +1,7 @@
 #!/bin/bash
+#todo extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
+#todo surveillance des logs, à définir
+#todo montrer les dossiers pour chaque instance
 
 list=$(cat /etc/indird.conf|jq '.|reduce path(.[]?) as $path (.; setpath($path; {}))' |grep -vEe '^({|})' |sed -e 's/[ ]*"//' -e 's/".*//')
 
