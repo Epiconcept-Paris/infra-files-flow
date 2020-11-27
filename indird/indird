@@ -494,7 +494,7 @@ LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
-systemd-notify --ready	# Notify the end of our startup phase
+systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
 
 # StepLogs is here as a function to be called more than once
 # within the main loop if ever needed in a future version
