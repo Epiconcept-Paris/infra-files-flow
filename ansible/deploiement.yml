@@ -51,9 +51,17 @@
     chgscript: { changed: false }
   
   tasks:
-    - name: dépot script
+    - name: dépot script indird
       copy: 
         src: "{{ srcdir }}/indird"
+        dest: "{{ bindir }}"
+        mode: 0755
+      become: True
+      register: chgscript
+
+    - name: dépot script de contrôle
+      copy: 
+        src: "files/indirdctl"
         dest: "{{ bindir }}"
         mode: 0755
       become: True
