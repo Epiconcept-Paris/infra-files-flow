@@ -89,18 +89,6 @@
         authorized_key: "{{ lookup('file', 'files/{{ item.nom }}.authorized_keys') }}"
       loop: "{{ users }}"
 
-#    - name: Creates user on com node ({{ inventory_hostname }})
-#      user:
-#        name: "{{ item.nom }}"
-#        comment: *comment
-#        generate_ssh_key: True
-#        ssh_key_file: "{{ ssh_key_file }}"
-#        ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
-#        home: '/space/home/{{ item.nom }}'
-#        shell: '/usr/bin/false' #existe pas mais c'est volontaire
-#      with_items: "{{ users }}"
-#      become: true
-
     - name: Store key on control
       fetch:
         src: '/space/home/{{ item.nom }}/{{ ssh_key_file }}.pub'
