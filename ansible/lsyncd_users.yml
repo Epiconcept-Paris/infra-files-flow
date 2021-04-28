@@ -1,0 +1,22 @@
+---
+
+- hosts: g_source
+  gather_facts: false
+
+  vars:
+    - users: ['geddoccu_test']
+
+  tasks:
+
+    - user:
+        name: "{{ item }}"
+        shell: '/usr/bin/mysecureshell'
+      with_items: "{{ users }}"
+      become: true
+
+    - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
+      authorized_key:
+        user: "{{ item }}"
+        key: "{{ lookup('file', 'files/{{ item }}.authorized_keys') }}" 
+      with_items: "{{ users }}"
+      become: true

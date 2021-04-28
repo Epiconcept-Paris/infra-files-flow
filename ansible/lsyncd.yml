@@ -24,16 +24,21 @@
     confdir: &confdir /etc/lsyncd
     confdird: &confdird "{{ confdir }}/conf.d"
     users : &users [
+#premier jet de test, obsolète
 #      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
 #        '/space/home/lad_test',
 #        '/space/home/lad_test_mhu',
 #      ]},
-      {nom: 'lad_lsyncd_prod', srv: 'profntd1.admin2', basedir: '/space/home/lad_lsyncd_prod/', sources: [
-        '/space/home/LADDOCCU38',
-      ]}
-#      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/', sources: [
-#        '/space/home/infra_lsyncd_test',
-#      ]},
+#temporaire, bug de création des comptes
+#      {nom: 'lad_lsyncd_prod', srv: 'profntd1.admin2', basedir: '/space/home/lad_lsyncd_prod/', sources: [
+#        '/space/home/LADDOCCU38',
+#      ]}
+      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/in/', sources: [
+        '/space/home/infra_lsyncd_test/in/',
+      ]},
+      {nom: 'geddoccu_test', srv: 'prefnt2.admin2', basedir: '/space/home/geddoccu_test/in/', sources: [
+        '/space/home/geddoccu_test/in/',
+      ]},
     ]
 
   tasks:
@@ -74,16 +79,27 @@
       become: true
 
     - name: Creates user on com node ({{ inventory_hostname }})
-      user:
-        name: "{{ item.nom }}"
-        comment: *comment
-        generate_ssh_key: True
-        ssh_key_file: "{{ ssh_key_file }}"
-        ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
-        home: '/space/home/{{ item.nom }}'
-        shell: '/usr/bin/false' #existe pas mais c'est volontaire
-      with_items: "{{ users }}"
-      become: true
+      include_role:
+        name: ar-sshflux-user-create
+      vars:
+        sshuser: "{{ item.nom }}"
+        comment: "compte lsyncd"
+        home: "/space/home/{{ item.nom }}"
+        shell: '/usr/bin/mysecureshell'
+        authorized_key: "{{ lookup('file', 'files/{{ item.nom }}.authorized_keys') }}"
+      loop: "{{ users }}"
+
+#    - name: Creates user on com node ({{ inventory_hostname }})
+#      user:
+#        name: "{{ item.nom }}"
+#        comment: *comment
+#        generate_ssh_key: True
+#        ssh_key_file: "{{ ssh_key_file }}"
+#        ssh_key_comment: "{{ item.nom }}-rsync@{{ inventory_hostname }}"
+#        home: '/space/home/{{ item.nom }}'
+#        shell: '/usr/bin/false' #existe pas mais c'est volontaire
+#      with_items: "{{ users }}"
+#      become: true
 
     - name: Store key on control
       fetch:

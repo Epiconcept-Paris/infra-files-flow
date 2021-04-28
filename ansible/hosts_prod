@@ -1,5 +1,5 @@
 [all:vars]
-ansible_sudo_pass="{{ lookup('pipe', 'pass sudo/nodes') }}"
+ansible_sudo_pass="{{ lookup('pipe', 'PASSWORD_STORE_DIR=~/Sync/Central/Dossiers/Pass pass sudo/nodes') }}"
 
 [g_source]
 procom1
