@@ -1,6 +1,6 @@
 ---
 
-- hosts: 127.0.0.1
+- hosts: localhost
   connection: local
   tags: ['local', 'reconf', 'always']
   gather_facts: False

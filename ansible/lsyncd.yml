@@ -12,6 +12,10 @@
 #https://github.com/axkibe/lsyncd/issues/445
 #https://axkibe.github.io/lsyncd/manual/config/layer4/
 
+#todo
+#documenter comment le flux marche
+
+
 ---
 
 - hosts: localhost
@@ -24,11 +28,11 @@
     confdir: &confdir /etc/lsyncd
     confdird: &confdird "{{ confdir }}/conf.d"
     users : &users [
-#premier jet de test, obsolète
-#      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
-#        '/space/home/lad_test',
-#        '/space/home/lad_test_mhu',
-#      ]},
+#premier jet de test, preprod
+      {nom: 'lad_lsyncd_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/lad_lsyncd_preprod/', sources: [
+        '/space/home/lad_test',
+        '/space/home/lad_test_mhu',
+      ]},
 #temporaire, bug de création des comptes
 #      {nom: 'lad_lsyncd_prod', srv: 'profntd1.admin2', basedir: '/space/home/lad_lsyncd_prod/', sources: [
 #        '/space/home/LADDOCCU38',
