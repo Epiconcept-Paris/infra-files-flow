@@ -79,6 +79,8 @@ cedric
 ## TODO
 
 * ré-intégrer procom1:/etc/lsyncd/conf.d/* à la conf au lieu de générer selon le template
+  * infra-files-flow/ansible/templates/ged_lsyncd_preprod.conf.j2
+  * infra-files-flow/ansible/templates/lad_lsyncd_preprod.conf.j2
 
 ## Déploiement
 
