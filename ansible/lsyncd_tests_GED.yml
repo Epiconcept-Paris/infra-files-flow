@@ -1,0 +1,76 @@
+---
+
+- hosts: prefnt2
+  gather_facts: false
+
+  vars:
+    - users: &users ['lad_test_mhu']
+
+  tasks: 
+
+    - name: nettoyage préventif fichiers sur prefnt2
+      file: 
+        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        state: absent
+      with_items: '{{ users }}'
+      become: true
+      become_user: lad_lsyncd_preprod
+
+- hosts: g_source
+  gather_facts: false
+
+  vars:
+    - users: *users
+
+  tasks:
+
+    - name: dépôts fichiers sur procom1
+      file: 
+        dest: '/space/home/{{ item }}/GED/tests_infra_ged_{{ item }}.truc'
+        owner: '{{ item }}'
+        state: touch
+      with_items: '{{ users }}'
+      become: true
+
+    - name: Pause le temps que les fichiers soient traités
+      pause:
+        seconds: 10
+
+    - name: check fichiers disparus sur procom1
+      file: 
+        dest: '/space/home/{{ item }}/GED/tests_infra_ged_{{ item }}.truc'
+        owner: '{{ item }}'
+        state: file
+      with_items: '{{ users }}'
+      register: out
+      failed_when: false
+
+    - name: check fichiers disparus sur procom1, résultats
+      ansible.builtin.fail:
+        msg: "Le fichier devrait être absent"
+      when: item.state != 'absent'
+      loop: "{{ out.results }}"
+      loop_control:
+        label: "{{ item.path }}"
+
+- hosts: prefnt2
+  gather_facts: false
+
+  vars:
+    - users: *users
+
+  tasks: 
+
+    - name: check fichiers sur prefnt2
+      file: 
+        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        state: file
+      with_items: '{{ users }}'
+
+    - name: nettoyage fichiers sur prefnt2
+      file: 
+        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        state: absent
+      with_items: '{{ users }}'
+      become: true
+      become_user: lad_lsyncd_preprod

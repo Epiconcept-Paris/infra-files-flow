@@ -40,8 +40,8 @@
       {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/in/', sources: [
         '/space/home/infra_lsyncd_test/in/',
       ]},
-      {nom: 'geddoccu_test', srv: 'prefnt2.admin2', basedir: '/space/home/geddoccu_test/in/', sources: [
-        '/space/home/geddoccu_test/in/',
+      {nom: 'gedladdoccu_test', srv: 'prefnt2.admin2', basedir: '/space/home/gedladdoccu_test/ged/', sources: [
+        '/space/home/gedladdoccu_test/in/',
       ]},
     ]
 

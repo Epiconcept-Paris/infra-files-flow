@@ -3,14 +3,17 @@
 - hosts: g_source
   gather_facts: false
 
+  #todo procom1 nettoyer lad_lsyncd_preprod ? à vérifier
+  #todo, intégrer lad_test et lad_test_mhu
   vars:
-    - users: ['geddoccu_test']
+    - users: &users ['lad_test', 'lad_test_mhu']
 
   tasks:
 
     - user:
         name: "{{ item }}"
         shell: '/usr/bin/mysecureshell'
+        home: '/space/home/{{ item }}'
       with_items: "{{ users }}"
       become: true
 
@@ -20,3 +23,14 @@
         key: "{{ lookup('file', 'files/{{ item }}.authorized_keys') }}" 
       with_items: "{{ users }}"
       become: true
+
+    - name: création dossiers lad_test_mhu
+      file: 
+        path: '/space/home/lad_test_mhu/{{ item }}'
+        state: directory
+        owner: 'lad_test_mhu'
+        recurse: yes
+      with_items: ['KU/RP', 'GED']
+      become: true
+
+  #todo généraliser la création des dossiers KP/KU et GED
