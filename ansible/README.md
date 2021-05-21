@@ -1,4 +1,4 @@
-# Usage
+# Usage déploiement indird
 
 * en attendant le changement d'inventaire
 ```
@@ -73,3 +73,36 @@ cedric
 * intégrer et tester les accès ssh entre procom1 et les frontaux
 * intégrer la création des accès SFTP sur procom (récup depuis https://github.com/Epiconcept-Paris/infra-mini-plays, ou à minima rationnalisation des comptes)
 * commit sur /etc/ à ajouter
+
+# Lsyncd
+
+## TODO
+
+* ré-intégrer procom1:/etc/lsyncd/conf.d/* à la conf au lieu de générer selon le template
+
+## Déploiement
+
+* ansible-playbook lsyncd_users.yml -D
+* **attention, procom1:/etc/lsyncd/conf.d/* gérer à la main, à ré-intégrer** ansible-playbook lsyncd.yml -D
+
+## Test
+
+* ansible-playbook lsyncd_tests_KU.yml 
+* ansible-playbook lsyncd_tests_GED.yml 
+
+## Flux
+
+### Légende
+
+* => flux rsync over SSH
+* -> symlink au sein d'un serveur
+
+### GED
+
+* procom1:/space/home/lad_test_mhu/GED/ => prefnt2:/space/home/lad_lsyncd_preprod/GED/ -> /space/applisdata/esisdoccu/GED/geddoccu_test
+
+### KU/RP
+
+* procom1:/space/home/lad_test/KU 		=> prefnt2:/space/home/lad_lsyncd_preprod/lad_test/KU 		-> /space/applisdata/esisdoccu/LAD_RP/lad_test/KU
+* procom1:/space/home/lad_test_mhu/KU 	=> prefnt2:/space/home/lad_lsyncd_preprod/lad_test_mhu/KU 	-> /space/applisdata/esisdoccu/LAD_RP/lad_test_mhu/KU
+* procom1:/space/home/LADDOCCU38 		=> profntd1:/space/home/lad_lsyncd_prod 					-> /space/applisdata/esisdoccu-alpes/LAD_RP/LADDOCCU38
