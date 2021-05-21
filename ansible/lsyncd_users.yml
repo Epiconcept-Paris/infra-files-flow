@@ -3,8 +3,6 @@
 - hosts: g_source
   gather_facts: false
 
-  #todo procom1 nettoyer lad_lsyncd_preprod ? à vérifier
-  #todo, intégrer lad_test et lad_test_mhu
   vars:
     - users: &users ['lad_test', 'lad_test_mhu']
 
@@ -33,4 +31,54 @@
       with_items: ['KU/RP', 'GED']
       become: true
 
-  #todo généraliser la création des dossiers KP/KU et GED
+- hosts: prefnt2
+  gather_facts: false
+
+  vars:
+    - users: *users
+
+  tasks: 
+
+    - name: dirs pour KU
+      file: 
+        path: '/space/applisdata/esisdoccu/LAD_RP/{{ item }}'
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0775'
+      with_items: '{{ users }}'
+      become: true
+      become_user: www-data
+
+    - name: liens pour KU
+      file: 
+        src: '/space/applisdata/esisdoccu/LAD_RP/{{ item }}'
+        dest: '/space/home/lad_lsyncd_preprod/{{ item }}'
+        owner: www-data
+        group: www-data
+        state: link
+        mode: '0775'
+      with_items: '{{ users }}'
+      become: true
+      become_user: lad_lsyncd_preprod
+
+    - name: dir pour GED
+      file: 
+        path: '/space/applisdata/esisdoccu/GED/geddoccu_test'
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0775'
+      become: true
+      become_user: www-data
+
+    - name: liens pour KU
+      file: 
+        src: '/space/applisdata/esisdoccu/GED/geddoccu_test'
+        dest: '/space/home/lad_lsyncd_preprod/GED'
+        owner: www-data
+        group: www-data
+        state: link
+        mode: '0775'
+      become: true
+      become_user: lad_lsyncd_preprod
