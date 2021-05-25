@@ -5,6 +5,7 @@
 
   vars:
     - users: &users ['lad_test', 'lad_test_mhu']
+    - directories: ['KU/RP', 'GED']
 
   tasks:
 
@@ -12,23 +13,23 @@
         name: "{{ item }}"
         shell: '/usr/bin/mysecureshell'
         home: '/space/home/{{ item }}'
-      with_items: "{{ users }}"
+      with_items: "{{ users }}"
       become: true
 
     - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
       authorized_key:
         user: "{{ item }}"
         key: "{{ lookup('file', 'files/{{ item }}.authorized_keys') }}" 
-      with_items: "{{ users }}"
+      with_items: "{{ users }}"
       become: true
 
-    - name: création dossiers lad_test_mhu
+    - name: création dossiers lad_test*
       file: 
-        path: '/space/home/lad_test_mhu/{{ item }}'
+        path: '/space/home/{{ item.0 }}/{{ item.1 }}'
         state: directory
-        owner: 'lad_test_mhu'
+        owner: '{{ item.0 }}'
         recurse: yes
-      with_items: ['KU/RP', 'GED']
+      loop: "{{ users|product(directories)|list }}"
       become: true
 
 - hosts: prefnt2
@@ -64,11 +65,14 @@
 
     - name: dir pour GED
       file: 
-        path: '/space/applisdata/esisdoccu/GED/geddoccu_test'
+        path: '{{ item }}'
         state: directory
         owner: www-data
         group: www-data
         mode: '0775'
+      with_items: 
+        - '/space/applisdata/esisdoccu/GED/lad_test'
+        - '/space/applisdata/esisdoccu/GED/geddoccu_test'
       become: true
       become_user: www-data
 

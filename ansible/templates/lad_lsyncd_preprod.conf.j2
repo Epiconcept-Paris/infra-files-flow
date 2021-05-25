@@ -12,8 +12,9 @@ settings {
 }
  
 source_list = { 
-        "/space/home/lad_test",
-        "/space/home/lad_test_mhu",
+{% for source in item.sources %}
+        "{{ source }}",
+{% endfor %}
 }
  
 for _, source in ipairs( source_list ) do

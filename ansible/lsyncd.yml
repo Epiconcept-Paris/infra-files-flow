@@ -40,9 +40,10 @@
       {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/in/', sources: [
         '/space/home/infra_lsyncd_test/in/',
       ]},
-      {nom: 'gedladdoccu_test', srv: 'prefnt2.admin2', basedir: '/space/home/gedladdoccu_test/ged/', sources: [
-        '/space/home/gedladdoccu_test/in/',
-      ]},
+#obsolète
+#      {nom: 'gedladdoccu_test', srv: 'prefnt2.admin2', basedir: '/space/home/gedladdoccu_test/ged/', sources: [
+#        '/space/home/gedladdoccu_test/in/',
+#      ]},
     ]
 
   tasks:
@@ -79,7 +80,9 @@
 
     - group:
         name: "{{ item.nom }}"
-      with_items: "{{ users }}"
+      loop: "{{ users }}"
+      loop_control:
+        label: '{{ item.nom }}'
       become: true
 
     - name: Creates user on com node ({{ inventory_hostname }})
@@ -90,15 +93,19 @@
         comment: "compte lsyncd"
         home: "/space/home/{{ item.nom }}"
         shell: '/usr/bin/mysecureshell'
-        authorized_key: "{{ lookup('file', 'files/{{ item.nom }}.authorized_keys') }}"
+        authorized_key: ''
       loop: "{{ users }}"
+      loop_control:
+        label: '{{ item.nom }}'
 
     - name: Store key on control
       fetch:
         src: '/space/home/{{ item.nom }}/{{ ssh_key_file }}.pub'
         dest: "{{ tmpdir }}/{{ item.nom }}"
         flat: yes
-      with_items: "{{ users }}"
+      loop: "{{ users }}"
+      loop_control:
+        label: '{{ item.nom }}'
       become: true
 
     - file: 
@@ -110,15 +117,40 @@
       with_items: [ confdir, confdird ]
       become: true
 
-    - name: configuration lsyncd pour chaque flux
+    - name: Check for specific lsyncd configuration
+      local_action: stat path={{ playbook_dir }}/templates/{{ item.nom }}.conf.j2
+      loop: "{{ users }}"
+      loop_control:
+        label: '{{ item.nom }}'
+      register: specificconf
+
+    - name: configuration générique lsyncd pour chaque flux
       template:
         src: lsyncd.item.conf.j2
         dest: "{{ confdird }}/{{ item.nom }}.conf"
         owner: root
         group: root
         mode: '0644'
-      with_items: "{{ users }}"
+      loop: "{{ users }}"
+      loop_control:
+        index_var: idx
+        label: '{{ item.nom }}'
       become: true
+      when: not specificconf.results[idx].stat.exists
+
+    - name: configuration spécifique lsyncd pour chaque flux
+      template:
+        src: "{{ item.nom }}.conf.j2"
+        dest: "{{ confdird }}/{{ item.nom }}.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ users }}"
+      loop_control:
+        index_var: idx
+        label: '{{ item.nom }}'
+      become: true
+      when: specificconf.results[idx].stat.exists
 
     - name: configuration lsyncd centrale
       template:
@@ -141,7 +173,7 @@
 
     - group:
         name: "{{ item.nom }}"
-      with_items: "{{ users }}"
+      with_items: "{{ users }}"
       become: true
 
     - name: Creates user on fnt node ({{ inventory_hostname }})
@@ -159,7 +191,7 @@
       authorized_key:
         user: "{{ item.nom }}"
         key: "{{ lookup('file', '{{ tmpdir }}/{{ item.nom }}') }}"
-      with_items: "{{ users }}"
+      with_items: "{{ users }}"
       become: true
 
     #todo: voir si on peut limiter ssh au dossier home du user
@@ -171,7 +203,7 @@
             AllowGroups {{ item.nom }}
             PasswordAuthentication no
         marker: "# {mark} ANSIBLE {{ item.nom }}"
-      with_items: "{{ users }}"
+      with_items: "{{ users }}"
       become: true
       register: out_confssh
 

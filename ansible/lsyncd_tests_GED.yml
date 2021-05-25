@@ -4,7 +4,7 @@
   gather_facts: false
 
   vars:
-    - users: &users ['lad_test_mhu']
+    - users: &users ['lad_test', 'lad_test_mhu']
 
   tasks: 
 
@@ -43,7 +43,7 @@
         state: file
       with_items: '{{ users }}'
       register: out
-      failed_when: false
+      failed_when: false 
 
     - name: check fichiers disparus sur procom1, résultats
       ansible.builtin.fail:
