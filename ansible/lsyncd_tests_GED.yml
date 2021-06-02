@@ -63,13 +63,13 @@
 
     - name: check fichiers sur prefnt2
       file: 
-        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/{{ item }}/tests_infra_ged_{{ item }}.truc'
         state: file
       with_items: '{{ users }}'
 
     - name: nettoyage fichiers sur prefnt2
       file: 
-        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/{{ item }}/tests_infra_ged_{{ item }}.truc'
         state: absent
       with_items: '{{ users }}'
       become: true

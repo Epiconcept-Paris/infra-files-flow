@@ -37,19 +37,13 @@ sync {
 }
 end
 
-source_list = { 
-{% for source in item.sources %}
-        "{{ source }}/GED/",
-{% endfor %}
-}
- 
 for _, source in ipairs( source_list ) do
  
 sync {
         default.rsync,
         delay=0,
-        source=source,
-        target="prefnt2.admin2:/space/home/lad_lsyncd_preprod/GED/",
+        source=source .. "/GED",
+        target="prefnt2.admin2:/space/home/lad_lsyncd_preprod/GED/" .. basename(source),
         delete = false,
         exclude = { '/.ssh' },
         rsync = {
