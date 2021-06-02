@@ -5,12 +5,13 @@
 
   vars:
     - users: &users ['lad_test', 'lad_test_mhu']
+    - basepath: &basepath '/space/applisdata/esisdoccu/GED'
 
   tasks: 
 
     - name: nettoyage préventif fichiers sur prefnt2
       file: 
-        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/tests_infra_ged_{{ item }}.truc'
+        dest: '{{ basepath }}/{{ item }}/tests_infra_ged_{{ item }}.truc'
         state: absent
       with_items: '{{ users }}'
       become: true
@@ -58,18 +59,19 @@
 
   vars:
     - users: *users
+    - basepath: *basepath
 
   tasks: 
 
     - name: check fichiers sur prefnt2
       file: 
-        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/{{ item }}/tests_infra_ged_{{ item }}.truc'
+        dest: '{{ basepath }}/{{ item }}/tests_infra_ged_{{ item }}.truc'
         state: file
       with_items: '{{ users }}'
 
     - name: nettoyage fichiers sur prefnt2
       file: 
-        dest: '/space/applisdata/esisdoccu/GED/geddoccu_test/{{ item }}/tests_infra_ged_{{ item }}.truc'
+        dest: '{{ basepath }}/{{ item }}/tests_infra_ged_{{ item }}.truc'
         state: absent
       with_items: '{{ users }}'
       become: true

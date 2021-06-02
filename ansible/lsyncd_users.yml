@@ -72,17 +72,17 @@
         mode: '0775'
       with_items: 
         - '/space/applisdata/esisdoccu/GED/lad_test'
-        - '/space/applisdata/esisdoccu/GED/geddoccu_test'
+        - '/space/applisdata/esisdoccu/GED/lad_test_mhu'
       become: true
       become_user: www-data
 
-    - name: liens pour KU
+    - name: liens pour GED
       file: 
-        src: '/space/applisdata/esisdoccu/GED/geddoccu_test'
+        src: '/space/applisdata/esisdoccu/GED'
         dest: '/space/home/lad_lsyncd_preprod/GED'
         owner: www-data
         group: www-data
         state: link
         mode: '0775'
       become: true
-      become_user: lad_lsyncd_preprod
+      become_user: www-data
