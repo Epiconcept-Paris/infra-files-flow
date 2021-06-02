@@ -36,3 +36,29 @@ sync {
         }
 }
 end
+
+source_list = { 
+{% for source in item.sources %}
+        "{{ source }}/GED/",
+{% endfor %}
+}
+ 
+for _, source in ipairs( source_list ) do
+ 
+sync {
+        default.rsync,
+        delay=0,
+        source=source,
+        target="prefnt2.admin2:/space/home/lad_lsyncd_preprod/GED/",
+        delete = false,
+        exclude = { '/.ssh' },
+        rsync = {
+                archive = true,
+                perms = true,
+                owner = true,
+                whole_file = true,
+                rsh = "/usr/bin/ssh -l lad_lsyncd_preprod -p 22 -o StrictHostKeyChecking=no -i /space/home/lad_lsyncd_preprod/.ssh/rsync ",
+                _extra = {"-a", "--remove-source-files"}
+        }
+}
+end
