@@ -44,7 +44,7 @@ LogMsg()
 	echo "$1" >&2
 	return
     fi
-    Stamp "$1" >>$LogFile
+    Stamp "[$Tag] $1" >>$LogFile
     # Should we use 'user' facility instead of 'daemon' ?
     test "$2" && logger -p daemon.$2 "$1"
 }
@@ -757,6 +757,7 @@ do
 	sleep ${Conf['sleep']} &
 	SleepPID=$!
 	wait $SleepPID	# Trick to avoid stderr messages like Terminated
+	LogDbg "Wait $SleepPID RC $?"
 	SleepPID=
     fi
 done	# } Loop until SIGTERM
