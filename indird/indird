@@ -433,6 +433,11 @@ SigUsr1()
     GotSig Usr1
 }
 
+SigUsr2()
+{
+    GotSig Usr2
+}
+
 #
 #------ Startup --------------------------------------------------------
 #
@@ -490,6 +495,7 @@ Signal=
 SleepPID=
 trap SigTerm TERM
 trap SigUsr1 USR1
+trap SigUsr2 USR2
 LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
@@ -523,25 +529,36 @@ StepLogs()
 #------ Main loop ------------------------------------------------------
 #
 LastMod=0
+trace=
 #   Loop until SIGTERM {
 while :
 do
+
     #	Handle signals synchronously
     if [ "$Signal" = 'Term' ]; then
-	LogNote "Exiting on SIGTERM"
-	break
+		LogNote "Exiting on SIGTERM"
+		break
     elif [ "$Signal" = 'Usr1' ]; then
-	LogNote "Reloading $Config on SIGUSR1"
+		LogNote "Reloading $Config on SIGUSR1"
 
-	# Reset Conf
-	unset Conf
-	declare -A Conf
+		# Reset Conf
+		unset Conf
+		declare -A Conf
 
-	# Then re-read and re-check the config
-	GetConf $Config $Tag
-	ChkConf $RunDir
+		# Then re-read and re-check the config
+		GetConf $Config $Tag
+		ChkConf $RunDir
 
-	Signal=
+		Signal=
+    elif [ "$Signal" = 'Usr2' ]; then
+		LogNote "Change x mode SIGUSR2"
+    	if [ test "$trace" ]; then
+    		trace=
+    		set +x
+    	else
+    		trace=y
+    		set -x
+    	fi
     fi
 
     # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
