@@ -6,6 +6,7 @@ localhost
 
 [g_source]
 procom1
+esistnnfs2
 
 [g_destination]
 prefnt2
