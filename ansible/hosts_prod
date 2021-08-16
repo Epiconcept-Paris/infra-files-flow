@@ -1,13 +1,13 @@
 [all:vars]
-ansible_sudo_pass="{{ lookup('pipe', 'PASSWORD_STORE_DIR=~/Sync/Central/Dossiers/Pass pass sudo/nodes') }}"
+ansible_sudo_pass="{{ lookup('pipe', 'pass sudo/nodes') }}"
 
 [local]
 localhost 
 
 [g_source]
-procom1
-esistnnfs2
+procom1.admin2
+esistnnfs2.admin2
 
 [g_destination]
-prefnt2
-profntd1
+prefnt2.admin2
+profntd1.admin2

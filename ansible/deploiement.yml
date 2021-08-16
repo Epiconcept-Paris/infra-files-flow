@@ -120,3 +120,4 @@
         state: "{{ state }}"
       with_items: "{{ services.stdout_lines }}"
       become: True
+      when: services is not skipped
