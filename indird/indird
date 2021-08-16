@@ -552,13 +552,14 @@ do
 		Signal=
     elif [ "$Signal" = 'Usr2' ]; then
 		LogNote "Change x mode SIGUSR2"
-    	if [ test "$trace" ]; then
+    	if [ ! -z "$trace" ]; then
     		trace=
     		set +x
     	else
     		trace=y
     		set -x
     	fi
+    	Signal=
     fi
 
     # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
