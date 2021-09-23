@@ -36,7 +36,15 @@
 #temporaire, bug de création des comptes
 #      {nom: 'lad_lsyncd_prod', srv: 'profntd1.admin2', basedir: '/space/home/lad_lsyncd_prod/', sources: [
 #        '/space/home/LADDOCCU38',
+#        '/space/home/LADDOCCU91',
 #      ]}
+#       {nom: 'TDEP_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/TDEP_preprod/', sources: [
+#        '/space/home/TDEP_test/preprod',
+#       ]}
+       {nom: 'TDEP_recette', srv: 'profntj1.admin2', basedir: '/space/home/TDEP_recette/', sources: [
+        '/space/home/TDEP_test/recette',
+       ]}
+
 #      {nom: 'infra_lsyncd_test', srv: 'prefnt2.admin2', basedir: '/space/home/infra_lsyncd_test/in/', sources: [
 #        '/space/home/infra_lsyncd_test/in/',
 #      ]},
@@ -92,7 +100,7 @@
         sshuser: "{{ item.nom }}"
         comment: "compte lsyncd"
         home: "/space/home/{{ item.nom }}"
-        shell: '/usr/bin/mysecureshell'
+        shell: '/usr/bin/false'
         authorized_key: ''
       loop: "{{ users }}"
       loop_control:
@@ -186,6 +194,9 @@
       #shell: /usr/bin/mysecureshell todo voir si on trouve un truc
       with_items: "{{ users }}"
       become: true
+
+    - debug: msg="{{ tmpdir }}/{{ item.nom }}"
+      with_items: "{{ users }}"
 
     - name: Sets authorized_key for user on com node ({{ inventory_hostname }})
       authorized_key:
