@@ -533,33 +533,32 @@ trace=
 #   Loop until SIGTERM {
 while :
 do
-
     #	Handle signals synchronously
     if [ "$Signal" = 'Term' ]; then
-		LogNote "Exiting on SIGTERM"
-		break
+	LogNote "Exiting on SIGTERM"
+	break
     elif [ "$Signal" = 'Usr1' ]; then
-		LogNote "Reloading $Config on SIGUSR1"
+	LogNote "Reloading $Config on SIGUSR1"
 
-		# Reset Conf
-		unset Conf
-		declare -A Conf
+	# Reset Conf
+	unset Conf
+	declare -A Conf
 
-		# Then re-read and re-check the config
-		GetConf $Config $Tag
-		ChkConf $RunDir
+	# Then re-read and re-check the config
+	GetConf $Config $Tag
+	ChkConf $RunDir
 
-		Signal=
+	Signal=
     elif [ "$Signal" = 'Usr2' ]; then
-		LogNote "Change x mode SIGUSR2"
-    	if [ ! -z "$trace" ]; then
-    		trace=
-    		set +x
-    	else
-    		trace=y
-    		set -x
-    	fi
-    	Signal=
+	LogNote "Change x mode SIGUSR2"
+	if [ "$trace" ]; then
+	    trace=
+	    set +x
+	else
+	    trace=y
+	    set -x
+	fi
+	Signal=
     fi
 
     # wakeup from sleep (end or kill) and save last mtime of spool dir as $Mod
@@ -573,6 +572,10 @@ do
     #	      if action failed, abort step loop
     #
     Mod=$(stat -c '%Y' "${Conf['path']}")
+    if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
+	LogDbg "Mod=$Mod !!"
+	Mod=$LastMod
+    fi
     #   Loop until dir untouched {
     while [ $Mod -gt $LastMod ]
     do
@@ -758,14 +761,20 @@ do
 		# Count processed / succesful files
 		NbP=$((NbP + 1))
 		test "$Succ" && NbS=$((NbS + 1))
+		LogDbg "NbS=$NbS NbP=$NbP"
 
 		test "$Signal" && break
 	    done #  } Loop on matching files
+	    LogDbg "Done with $Files"
 
 	    test "$Signal" && break
 	done #	} Loop on all 'rules' members
 	LogInfo "Processed $NbP file(s), $NbS successfully"
 	Mod=$(stat -c '%Y' "${Conf['path']}")
+	if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
+	    LogDbg "Mod=$Mod !!"
+	    Mod=$LastMod
+	fi
 
 	test "$Signal" && break
     done #  } Loop until dir untouched
@@ -777,6 +786,8 @@ do
 	wait $SleepPID	# Trick to avoid stderr messages like Terminated
 	LogDbg "Wait $SleepPID RC $?"
 	SleepPID=
+    else
+	LogDbg "Signal=$Signal"
     fi
 done	# } Loop until SIGTERM
 LogInfo "Done"
