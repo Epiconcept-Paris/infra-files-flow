@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+#	bash/bash-fix - Patch/unpatch /usr/local/bin/indird to use bash-5.0
+#			bash-static package (and install / purge it) to fix
+#			a bash-4.0 'hang' bug in jobs.c:bgp_delete()
+#
+Prg=$(basename $0)
+test $(id -u) -eq 0 || { echo "$Prg: must be run as root" >&2; exit 1; }
+
+Main='/usr/local/bin/indird'
+test -x $Main || { echo "$Prg: $Main is not installed, aborting" >&2; exit 2; }
+
+Bang='#!/usr/bin/env'
+fix()
+{
+    sed -i "s;^$Bang .*$;$Bang $1;" $Main
+}
+
+Bash=$(command -v bash)
+Ver=$($Bash --version | sed -nr 's/^.* version ([0-9]+)\..*$/\1/p')
+expr "$Ver" : '[0-9][0-9]*$' >/dev/null || { echo "$Prg: cannot determine version of $Bash, aborting" >&2; exit 3; }
+
+if [ "$Ver" -lt 5 ]; then
+    if ! command -v bash-static >/dev/null; then
+	Pkg=${1:-bash-static_5.0-4_amd64.deb}
+	dpkg -I $Pkg >/dev/null 2>&1 || { echo "$Prg: $Pkg is not a valid Debian package" >&2; exit 4; }
+	echo "Installing $Pkg"
+	dpkg -i $Pkg
+    fi
+    grep "^$Bang bash-static\$" $Main >/dev/null && { echo "$Prg: $Main is already fixed for bash$Ver" >&2; exit 0; }
+    echo "Patching $Main for bash-static"
+    fix bash-static
+else
+    grep "^$Bang bash\$" $Main >/dev/null && { echo "$Prg: standard $Main works with bash$Ver" >&2; exit 0; }
+    echo "Restoring standard $Main"
+    fix bash
+    if dpkg -L bash-static >/dev/null 2>&1; then
+	echo "Removing now useless bash-static package"
+	dpkg -P bash-static
+    fi
+fi
+exit 0
