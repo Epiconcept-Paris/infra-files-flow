@@ -39,10 +39,11 @@
         - profnte1
         - esistnnfs2
         - prefnt2
+        - profntj1
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
-- hosts: procom1.admin2 profntd1.admin2 profnte1.admin2 esistnnfs2.admin2 prefnt2.admin2
+- hosts: procom1.admin2 profntd1.admin2 profnte1.admin2 esistnnfs2.admin2 prefnt2.admin2 profntj1.admin2
   gather_facts: True
 
   vars:
