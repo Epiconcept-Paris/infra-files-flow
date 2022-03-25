@@ -10,6 +10,10 @@ status) for i in $list; do systemctl status indird@$i; done ;;
 start) for i in $list; do echo $i; sudo systemctl start indird@$i; done ;;
 stop) for i in $list; do echo $i; sudo systemctl stop indird@$i; done ;;
 ps) systemctl |grep indird ;;
+check) 
+	services=$(systemctl list-units --all | grep -v masked | grep indird@)
+	for i in $list; do result=$(echo "$services" | grep "indird@$i.service"); if [ -z "$result" ]; then echo "indird@$i.service"; fi; done
+	;;
 debug)
 	for instance in $list; do 
 		cmd=$(cat /etc/indird.conf| jq .$instance.actions.copy.cmd -r| sed 's/"\$i_FILE"/$FILE/g')
