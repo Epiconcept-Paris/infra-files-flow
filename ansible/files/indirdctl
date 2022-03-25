@@ -25,5 +25,5 @@ debug)
 	done
 	;;
 *) 
-	echo "$0 status|ps|debug|start|stop"
+	echo "$0 status|ps|debug|start|stop|check"
 esac

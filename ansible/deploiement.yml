@@ -63,12 +63,28 @@
       register: chgscript
 
     - name: dépot script de contrôle
+      tags: ['scripts']
       copy: 
         src: "files/indirdctl"
         dest: "{{ bindir }}"
         mode: 0755
       become: True
-      register: chgscript
+
+    - name: dépot sonde norme
+      tags: ['scripts']
+      copy: 
+        src: "files/normed_indird.sh"
+        dest: "{{ bindir }}/norme.d/indird.sh"
+        mode: 0755
+      become: True
+
+    - name: dépot sonde state
+      tags: ['scripts']
+      copy: 
+        src: "files/stated_indird"
+        dest: "{{ bindir }}/state.d/indird"
+        mode: 0755
+      become: True
 
     - name: dépot configuration
       tags: ['reconf']

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+mode=$1
+ABS=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+
+values=$($ABS/../indirdctl check | xargs)
+if [ ! -z "$values" ]; then
+	echo -e "\e[1m\e[41m $values \e[0m"
+else 
+	echo "ok"
+fi
