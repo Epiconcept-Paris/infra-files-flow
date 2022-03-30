@@ -33,11 +33,6 @@
 #        '/space/home/lad_test',
 #        '/space/home/lad_test_mhu',
 #      ]},
-#temporaire, bug de création des comptes
-#      {nom: 'lad_lsyncd_prod', srv: 'profntd1.admin2', basedir: '/space/home/lad_lsyncd_prod/', sources: [
-#        '/space/home/LADDOCCU38',
-#        '/space/home/LADDOCCU91',
-#      ]}
 #       {nom: 'TDEP_preprod', srv: 'prefnt2.admin2', basedir: '/space/home/TDEP_preprod/', sources: [
 #        '/space/home/TDEP_test/preprod',
 #       ]}
