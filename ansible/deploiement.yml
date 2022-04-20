@@ -54,6 +54,13 @@
     chgscript: { changed: false }
   
   tasks:
+    - name: dépot bash-static 5
+      copy:
+        src: files/bash-static
+        dest: /bin/bash-static
+        mode: 0755
+      become: true
+
     - name: dépot script indird
       copy: 
         src: "{{ srcdir }}/indird"
