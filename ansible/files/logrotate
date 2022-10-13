@@ -1,0 +1,10 @@
+/var/log/indird* {
+	su root root
+	weekly
+	missingok
+	rotate 64
+	compress
+	delaycompress
+	notifempty
+	create 644 root root
+}
