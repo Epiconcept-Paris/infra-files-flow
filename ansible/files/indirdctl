@@ -13,7 +13,11 @@ ps) systemctl |grep indird ;;
 check) 
 	if [ "$list" != "null" ]; then
 		services=$(systemctl list-units --all | grep -v masked | grep indird@)
-		for i in $list; do result=$(echo "$services" | grep "indird@$i.service"); if [ -z "$result" ]; then echo "indird@$i.service"; fi; done
+		for i in $list; do 
+			result=$(echo "$services" | grep "indird@$i.service")
+			if [ -z "$result" ]; then echo "indird@$i.service (absent)"; fi
+			if [[ "$result" =~ "failed" ]]; then echo "indird@$i.service (failed)"; fi
+		done
 	fi
 	;;
 debug)
