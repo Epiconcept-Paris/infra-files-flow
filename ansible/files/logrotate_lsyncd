@@ -1,4 +1,4 @@
-/var/log/indird* {
+/var/log/lsyncd*.log {
 	su root root
 	weekly
 	missingok
