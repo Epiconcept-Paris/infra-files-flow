@@ -146,3 +146,11 @@
       with_items: "{{ services.stdout_lines }}"
       become: True
       when: services is not skipped
+
+    - name: dépot logrotate
+      tags: ['logrotate']
+      copy:
+        src: "files/logrotate_indird"
+        dest: "/etc/logrotate.d/indird"
+        mode: 0644
+      become: True

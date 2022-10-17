@@ -251,3 +251,11 @@
         enabled: False
         state: restarted
       become: True
+
+    - name: dépot logrotate
+      tags: ['logrotate']
+      copy:
+        src: "files/logrotate_lsyncd"
+        dest: "/etc/logrotate.d/lsyncd"
+        mode: 0644
+      become: True
