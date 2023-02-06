@@ -121,7 +121,7 @@ GetConf()
     test -f "$err" || LogExit "cannot create temp file $err ??" $ExCfgErr
 
     # Full-line # comments are allowed, \n changed to ;
-    if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".$2" 2>$err); then
+    if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".\"$2\"" 2>$err); then
 	ParseConf "$cnf"
 	rm $err
     else
@@ -391,7 +391,6 @@ WakeupMain()
 	else
 	    LogDbg "No need to wakeup $1 (Main PID=$MainPID), already active"
 	fi
-	exit 0	# No error, whether pid is found or not
     else
 	LogWarn "Instance $1 is not running ?"
     fi
@@ -447,7 +446,6 @@ SigUsr2()
 #
 test "$1" || Usage
 command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
-command -v lsof >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
 
 Tag=$1
 declare -A Conf
@@ -503,23 +501,6 @@ LogInfo "Watch interval is ${Conf['sleep']}s"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
-
-# FindWriter outputs the command (if any) currently writing to file $1
-#            returns 0 if command found, 1 if not
-FindWriter()
-{
-    local fm cmd mode
-
-    lsof "$1" | awk '$1 != "COMMAND"{print $4,$1}' | while read fm cmd
-    do
-	# Extract mode from file-descriptor+mode
-	mode=$(expr "$fm" : '[0-9][0-9]*\(.*\)')
-	LogDbg "File '$1' mode '$mode' cmd '$cmd'"
-	# NOTE: return 0 does not exit the function, only the while loop
-	test "$mode" = 'w' && echo "$cmd" && return 0
-    done
-    return $?	# Will be 0 if found or 1 if not (EOF on while)
-}
 
 # StepLogs is here as a function to be called more than once
 # within the main loop if ever needed in a future version
@@ -600,7 +581,6 @@ do
     do
 	NbP=0	# number of files processed
 	NbS=0	# number of files with at least one success action
-	NbW=0	# number of files being written to
 	LastMod=$Mod
 	LogDbg "Examining "${Conf['path']}"..."
 
@@ -620,13 +600,6 @@ do
 	    for file in $Files
 	    do
 		test -f "$file" || continue	# Handle no match
-
-		# Check that file is not being written to
-		if Writer="$(FindWriter "$file")"; then
-		    LogDbg "  File $file is being written to by $Writer - skipping"
-		    NbW=$((NbW + 1))
-		    continue
-		fi
 
 		LogDbg "  Processing $file"
 		# base Env for all steps
@@ -802,8 +775,6 @@ do
 	    LogDbg "Mod=$Mod !!"
 	    Mod=$LastMod
 	fi
-	LogDbg "NbW=$NbW"
-	test $NbW -gt 0 && sleep 0.2	# Wait 200ms if files being written to
 
 	test "$Signal" && break
     done #  } Loop until dir untouched
