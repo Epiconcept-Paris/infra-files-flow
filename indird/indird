@@ -547,7 +547,7 @@ StepLogs()
 mTime()
 {
     set -- $(ls -ld --time-style='+%s %N' "$1");
-    echo $6$(expr "$7" : '\(...\).*')
+    echo $6$(expr "$7" : '\(...\)')
 }
 
 #
