@@ -384,13 +384,15 @@ WakeupMain()
 
     eval $(systemctl -p MainPID show $1)
     if [ 0$MainPID -gt 0 ]; then
-	pid=$(ps -ef | awk "\$3==$MainPID && \$8==\"sleep\"{print \$2}")
+	# ps -ef columns: 1:UID 2:PID 3:PPID 4:C 5:STIME 6:TTY 7:TIME 8:CMD 9:ARG
+	pid=$(ps -ef | awk "\$3==$MainPID && \$8==\"sleep\" && \$9!=\"$wDelay\" {print \$2}")
 	if [ "$pid" ]; then
 	    LogDbg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
 	    kill $pid
 	else
 	    LogDbg "No need to wakeup $1 (Main PID=$MainPID), already active"
 	fi
+	exit 0	# No error, whether pid is found or not
     else
 	LogWarn "Instance $1 is not running ?"
     fi
@@ -446,6 +448,7 @@ SigUsr2()
 #
 test "$1" || Usage
 command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
+command -v lsof >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
 
 Tag=$1
 declare -A Conf
@@ -491,6 +494,7 @@ fi
 #
 #   Trap signals and notify systemd we are done with our init
 #
+wDelay='0.2'
 Signal=
 SleepPID=
 trap SigTerm TERM
@@ -501,6 +505,22 @@ LogInfo "Watch interval is ${Conf['sleep']}s"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
+
+# FindWriter outputs the command (if any) currently writing to file $1
+FindWriter()
+{
+    local fm cmd mode
+
+    # lsof columns: 1:COMMAND 2:PID 3:USER 4:FD 5:TYPE 6:DEVICE 7:SIZE 8:NODE 9:NAME
+    #	We put cmd last just in (the very unlikely) case it would contain spaces.
+    lsof "$1" | awk '$1 != "COMMAND"{print $4,$7,$1}' | while read fm sz cmd
+    do
+	# Extract mode from file-descriptor+mode
+	mode=$(expr "$fm" : '[0-9][0-9]*\(.*\)')
+	LogDbg "  File '$1' mode='$mode' size=$sz cmd='$cmd'"
+	test "$mode" = 'w' && echo "$cmd" && break
+    done
+}
 
 # StepLogs is here as a function to be called more than once
 # within the main loop if ever needed in a future version
@@ -523,6 +543,13 @@ StepLogs()
 	    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$3"
 	fi
     done
+}
+
+#   Output $1 file's mtime in ms
+mTime()
+{
+    set -- $(ls -ld --time-style='+%s %N' "$1");
+    echo $6$(expr "$7" : '\(...\)')
 }
 
 #
@@ -571,7 +598,7 @@ do
     #	      loop on logs of step
     #	      if action failed, abort step loop
     #
-    Mod=$(stat -c '%Y' "${Conf['path']}")
+    Mod=$(mTime "${Conf['path']}")
     if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
 	LogDbg "Mod=$Mod !!"
 	Mod=$LastMod
@@ -581,6 +608,7 @@ do
     do
 	NbP=0	# number of files processed
 	NbS=0	# number of files with at least one success action
+	NbW=0	# number of files being written to
 	LastMod=$Mod
 	LogDbg "Examining "${Conf['path']}"..."
 
@@ -600,6 +628,14 @@ do
 	    for file in $Files
 	    do
 		test -f "$file" || continue	# Handle no match
+
+		# Check that file is not being written to
+		Writer="$(FindWriter "$file")"
+		if [ "$Writer" ]; then
+		    LogDbg "  File $file is being written to by $Writer - skipping"
+		    NbW=$((NbW + 1))
+		    continue
+		fi
 
 		LogDbg "  Processing $file"
 		# base Env for all steps
@@ -770,7 +806,11 @@ do
 	    test "$Signal" && break
 	done #	} Loop on all 'rules' members
 	LogInfo "Processed $NbP file(s), $NbS successfully"
-	Mod=$(stat -c '%Y' "${Conf['path']}")
+	LogDbg "NbW=$NbW"
+	# If files being written to, Wait 200ms and touch ${Conf['path']}
+	test $NbW -gt 0 && sleep $wDelay && touch "${Conf['path']}"
+
+	Mod=$(mTime "${Conf['path']}")
 	if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
 	    LogDbg "Mod=$Mod !!"
 	    Mod=$LastMod
