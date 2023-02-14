@@ -12,11 +12,13 @@ stop) for i in $list; do echo $i; sudo systemctl stop indird@$i; done ;;
 ps) systemctl |grep indird ;;
 check) 
 	if [ "$list" != "null" ]; then
-		services=$(systemctl list-units --all | grep -v masked | grep indird@)
-		for i in $list; do 
-			result=$(echo "$services" | grep "indird@$i.service")
-			if [ -z "$result" ]; then echo "indird@$i.service (absent)"; fi
-			if [[ "$result" =~ "failed" ]]; then echo "indird@$i.service (failed)"; fi
+		for servicetype in indird indirdwake; do
+			services=$(systemctl list-units --all | grep -v masked | grep $servicetype@)
+			for i in $list; do 
+				result=$(echo "$services" | grep "$servicetype@$i.service")
+				if [ -z "$result" ]; then echo "$servicetype@$i.service (absent)"; fi
+				if [[ "$result" =~ "failed" ]]; then echo "$servicetype@$i.service (failed)"; fi
+			done
 		done
 	fi
 	;;
