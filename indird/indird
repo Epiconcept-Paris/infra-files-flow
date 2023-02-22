@@ -392,7 +392,6 @@ WakeupMain()
 	else
 	    LogDbg "No need to wakeup $1 (Main PID=$MainPID), already active"
 	fi
-	exit 0	# No error, whether pid is found or not
     else
 	LogWarn "Instance $1 is not running ?"
     fi
