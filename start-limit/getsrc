@@ -1,0 +1,32 @@
+#!/bin/sh
+
+Prg=$(basename $0)
+cd $(dirname $0)
+mkdir work || { echo "$Prg: directory 'work' already exists. Remove or rename it to proceed..." >&2; exit 1; }
+exec 2>$Prg.log
+get()
+{
+    wget --progress=dot:mega "$@"
+}
+cd work
+get http://ftp.debian.org/debian/pool/main/s/systemd/systemd_232.orig.tar.gz
+get http://deb.freexian.com/extended-lts/pool/main/s/systemd/systemd_232-25+deb9u15.debian.tar.xz
+get http://ftp.debian.org/debian/pool/main/s/systemd/systemd_241.orig.tar.gz
+get http://ftp.debian.org/debian/pool/main/s/systemd/systemd_241-7~deb10u8.debian.tar.xz
+get http://ftp.debian.org/debian/pool/main/s/systemd/systemd_247.3.orig.tar.gz
+get http://ftp.debian.org/debian/pool/main/s/systemd/systemd_247.3-7+deb11u1.debian.tar.xz
+get "http://ftp.debian.org/debian/pool/main/s/systemd" 
+mv systemd systemd.html
+tar xf systemd_232.orig.tar.gz
+cd systemd-232
+tar xf ../systemd_232-25+deb9u15.debian.tar.xz 
+cd ..
+tar xf systemd_241.orig.tar.gz
+cd systemd-241
+tar xf ../systemd_241-7~deb10u8.debian.tar.xz
+cd ..
+tar xf systemd_247.3.orig.tar.gz
+cd systemd-stable-247.3
+tar xf ../systemd_247.3-7+deb11u1.debian.tar.xz
+cd ..
+find systemd-* -type f -print0 | sort -z | xargs -0 grep '[^t]StartLimitInter' >grep.out
