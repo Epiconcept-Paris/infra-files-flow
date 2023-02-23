@@ -15,7 +15,7 @@ Third, further research led to the discovery of a `SmartLimitInterval=` setting 
 A quick search was then done on the sources of the different versions of systemd:
 
 | systemd version | Debian version |
----
+|---|---|
 | systemd-232-25+deb9u15 | 9.13 |
 | systemd-241-7~deb10u8 | 10.13 |
 | systemd-247.3-7+deb11u1 | 11.6 |
