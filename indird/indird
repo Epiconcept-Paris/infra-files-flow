@@ -820,7 +820,7 @@ do
 
     if [ -z "$Signal" ]; then
 	LogDbg "Sleeping ${Conf['sleep']}s"
-	sleep ${Conf['sleep']} &
+	sleep ${Conf['sleep']} <&- >&- 2>&- &
 	SleepPID=$!
 	wait $SleepPID	# Trick to avoid stderr messages like Terminated
 	LogDbg "Wait $SleepPID RC $?"
