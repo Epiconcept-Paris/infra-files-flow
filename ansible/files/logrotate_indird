@@ -1,10 +1,14 @@
 /var/log/indird*.log {
-	su root root
-	weekly
-	missingok
-	rotate 64
-	compress
-	delaycompress
-	notifempty
-	create 644 root root
+    su root root
+    daily
+    missingok
+    rotate 64
+    compress
+    delaycompress
+    notifempty
+    create 644 root root
+    sharedscripts
+    postrotate
+      /usr/local/bin/indirdctl reload > /dev/null
+    endscript
 }
