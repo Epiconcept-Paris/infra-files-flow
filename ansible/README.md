@@ -12,7 +12,7 @@ ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D -t local
 
 * pour juste déployer une maj de conf (retirer le -C quand c'est validé)
 ```
-ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -DC -t reconf
+ANSIBLE_MAX_DIFF_SIZE=1000000 ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -DC -t reconf
 ```
 
 Note: l'exécution en Check va planter avec ce message, sans importance ici
