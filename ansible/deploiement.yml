@@ -54,6 +54,11 @@
     chgscript: { changed: false }
   
   tasks:
+    - name: gestion paramètre
+      tags: ['reconf']
+      set_fact:
+        filterprocess: "{{ filter | default('') }}"
+
     - name: dépot bash-static 5
       copy:
         src: files/bash-static
@@ -122,7 +127,7 @@
 
     - name: lister les services
       tags: ['reconf']
-      shell: "cat {{ conffile }} | jq -r 'keys|.[]'"
+      shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
       register: services
       changed_when: False
 

@@ -10,9 +10,9 @@ ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D
 ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -D -t local
 ```
 
-* pour juste déployer une maj de conf (retirer le -C quand c'est validé)
+* pour juste déployer une maj de conf (retirer le -C quand c'est validé) en ne relançant que les process contenant GEDLAD12
 ```
-ANSIBLE_MAX_DIFF_SIZE=1000000 ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -DC -t reconf
+ANSIBLE_MAX_DIFF_SIZE=1000000 ansible-playbook -i ~/bin/list_new_servers.txt deploiement.yml -DC -t reconf -e filter=GEDLAD12
 ```
 
 Note: l'exécution en Check va planter avec ce message, sans importance ici
