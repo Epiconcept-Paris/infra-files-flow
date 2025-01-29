@@ -25,7 +25,7 @@
 
     - name: assertion sur les chemins nécessaires
       assert: 
-        that: "{{ item.stat.exists }} == true"
+        that: "{{ item.stat.exists }}"
         fail_msg: "{{ item.item }} manquant"
         quiet: yes
       with_items: "{{ path_exists.results }}"
