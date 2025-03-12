@@ -597,7 +597,8 @@ do
     #	      loop on logs of step
     #	      if action failed, abort step loop
     #
-    Mod=$(mTime .)
+    # Make sure with '/' below that we dereference a possible symlink
+    Mod=$(mTime "${Conf['path']}/")
     if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
 	LogDbg "WARNING: Mod='$Mod' !!"
 	Mod=$LastMod
@@ -815,7 +816,8 @@ do
 	# If files being written to, Wait 200ms and touch ${Conf['path']}
 	test $NbW -gt 0 && sleep $wDelay && touch "${Conf['path']}"
 
-	Mod=$(mTime .)
+	# Make sure with '/' below that we dereference a possible symlink
+	Mod=$(mTime "${Conf['path']}/")
 	if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
 	    LogDbg "WARNING: Mod='$Mod' !!"
 	    Mod=$LastMod
@@ -835,7 +837,7 @@ do
 	else
 	    ret="returned exit-code=$rc"
 	fi
-	LogDbg "Wait for sleep (PID=$SleepPID) $ret"
+	LogDbg "'sleep' (PID=$SleepPID) $ret"
 	SleepPID=
     else
 	LogDbg "Signal=$Signal"
