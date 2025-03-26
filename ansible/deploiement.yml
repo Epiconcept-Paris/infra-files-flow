@@ -64,6 +64,7 @@
         filterprocess: "{{ filter | default('') }}"
 
     - name: dépot bash-static 5
+      tags: ['install']
       copy:
         src: files/bash-static
         dest: /bin/bash-static
@@ -71,6 +72,7 @@
       become: true
 
     - name: dépot script indird
+      tags: ['install']
       copy: 
         src: "{{ srcdir }}/indird"
         dest: "{{ bindir }}"
@@ -112,6 +114,7 @@
       register: chgconf
 
     - name: dépot services
+      tags: ['install']
       copy: 
         src: "{{ srcdir }}/{{ item }}"
         dest: "{{ systemddir }}"
@@ -123,6 +126,7 @@
       become: True
 
     - name: setup service indird
+      tags: ['install']
       service:
         name: indird@{}
         enabled: False
