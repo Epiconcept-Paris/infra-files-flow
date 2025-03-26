@@ -59,7 +59,7 @@
   
   tasks:
     - name: gestion paramètre
-      tags: ['reconf']
+      tags: ['reconf', 'install']
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
@@ -134,7 +134,7 @@
       become: True
 
     - name: lister les services
-      tags: ['reconf']
+      tags: ['reconf', 'install']
       shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
       register: services
       changed_when: False
@@ -143,15 +143,15 @@
       tags: ['reconf']
       set_fact:
         state: reloaded
-      when: chgconf.changed == true or chgscript.changed == true
+      when: chgconf.changed == true
     - name: mode restart
-      tags: ['reconf']
+      tags: ['install']
       set_fact:
-        state: started
-      when: chgconf.changed == false and chgscript.changed == false
+        state: restarted
+      when: chgscript.changed == true
 
     - name: setup services indird@service
-      tags: ['reconf']
+      tags: ['reconf', 'install']
       service:
         name: "indird@{{ item }}"
         enabled: False
