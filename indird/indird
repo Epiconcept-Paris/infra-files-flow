@@ -5,6 +5,7 @@
 #	requires package jq
 #
 Prg=$(basename $0)
+test "$2" = 'wakeup' && trap '' HUP
 IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
 eval "Config=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 LogFile=/var/log/$Prg.log
@@ -502,6 +503,7 @@ wDelay='0.2'
 Signal=
 SleepPID=
 trap SigHup   HUP
+trap ''      INT QUIT
 trap SigTerm TERM
 trap SigUsr1 USR1
 trap SigUsr2 USR2
