@@ -2,5 +2,5 @@
 
 tmpconffile: "/tmp/infra-files-flow_"
 
-path_repo_base: "/home/cedric/www/e"
+path_repo_base: "{{ playbook_dir }}/../../"
 path_repo_infra_data_misc: "{{ path_repo_base }}/infra-data-misc"
