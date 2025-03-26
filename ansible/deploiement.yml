@@ -63,7 +63,7 @@
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
-    - name: dépot bash-static 5
+    - name: dépot bash-static
       tags: ['install']
       copy:
         src: files/bash-static
@@ -158,10 +158,10 @@
         state: "{{ state }}"
       with_items: "{{ services.stdout_lines }}"
       become: True
-      when: services is not skipped
+      when: services is not skipped and state is defined
 
     - name: dépot logrotate
-      tags: ['logrotate']
+      tags: ['logrotate', 'install']
       copy:
         src: "files/logrotate_indird"
         dest: "/etc/logrotate.d/indird"
