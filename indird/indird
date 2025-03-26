@@ -581,7 +581,7 @@ do
     #	Handle signals synchronously
     if [ "$Signal" = 'Hup' ]; then
 	LogNote "Re-opening $LogFile on SIGHUP"
-	exec 2>>&-
+	exec 2>&-
 	exec 2>>$LogFile
 	Signal=
     elif [ "$Signal" = 'Term' ]; then
