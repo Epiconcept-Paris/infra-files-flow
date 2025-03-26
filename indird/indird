@@ -424,6 +424,11 @@ GotSig()
     test "$SleepPID" && kill "$SleepPID" 2>/dev/null
 }
 
+SigHup()
+{
+    GotSig Hup
+}
+
 SigTerm()
 {
     GotSig Term
@@ -496,6 +501,7 @@ fi
 wDelay='0.2'
 Signal=
 SleepPID=
+trap SigHup   HUP
 trap SigTerm TERM
 trap SigUsr1 USR1
 trap SigUsr2 USR2
@@ -571,7 +577,12 @@ trace=
 while :
 do
     #	Handle signals synchronously
-    if [ "$Signal" = 'Term' ]; then
+    if [ "$Signal" = 'Hup' ]; then
+	LogNote "Re-opening $LogFile on SIGHUP"
+	exec 2>>&-
+	exec 2>>$LogFile
+	Signal=
+    elif [ "$Signal" = 'Term' ]; then
 	LogNote "Exiting on SIGTERM"
 	break
     elif [ "$Signal" = 'Usr1' ]; then
