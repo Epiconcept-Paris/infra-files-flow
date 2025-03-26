@@ -13,6 +13,7 @@ restart) for i in $list; do echo $i; sudo systemctl restart indird@$i; done ;;
 reload) for i in $list; do echo $i; sudo systemctl reload indird@$i; done ;;
 resetlog) for i in $list; do echo $i; sudo systemctl --signal=HUP indird@$i; done ;;
 ps) systemctl |grep 'indird@' ;;
+ls) if [ "$list" != "null" ]; then echo "$list"; fi ;;
 check) 
 	if [ "$list" != "null" ]; then
 		for servicetype in indird indirdwake; do
