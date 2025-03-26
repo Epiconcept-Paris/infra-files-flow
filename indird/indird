@@ -551,6 +551,17 @@ mTime()
     echo $6$(expr "$7" : '\(...\)')
 }
 
+#   Output $1 in milliseconds as YYYY-mm-dd HH:MM:SS.NNN
+hTime()
+{
+    local sec ms
+
+    test "$1" = '0' && { echo '(never)'; return; }
+    sec=$(expr "$1" : '\(.*\)...$')
+    ms=$(expr "$1" : '.*\(...\)$')
+    date -d "@$sec" "+%Y-%m-%d %H:%M:%S.$ms"
+}
+
 #
 #------ Main loop ------------------------------------------------------
 #
@@ -603,7 +614,13 @@ do
 	LogDbg "WARNING: Mod='$Mod' !!"
 	Mod=$LastMod
     fi
-    LogDbg "LastMod=$LastMod Mod=$Mod"
+    if [ $Mod -eq $LastMod ]; then
+	LogDbg "Mod = LastMod='$(hTime "$Mod")'"
+    elif [ $Mod -gt $LastMod ]; then
+	LogDbg "Mod='$(hTime "$Mod") > LastMod='$(hTime "$LastMod")'"
+    else
+	LogDbg "WARNING: Mod='$(hTime "$Mod") < LastMod='$(hTime "$LastMod")'"
+    fi
     #   Loop until dir untouched {
     while [ $Mod -gt $LastMod ]
     do
@@ -827,17 +844,23 @@ do
     done #  } Loop until dir untouched
 
     if [ -z "$Signal" ]; then
-	LogDbg "Sleeping ${Conf['sleep']}s"
-	sleep ${Conf['sleep']} <&- >&- 2>&- &
+	sleep "${Conf['sleep']}" <&- >&- 2>&- &
 	SleepPID=$!
+	LogDbg "Sleeping ${Conf['sleep']}s (PID=$SleepPID)"
 	wait $SleepPID	# Trick to avoid stderr messages like Terminated
 	rc=$?
+	warn=''
+	norm=' normally'
 	if [ "$rc" -gt 128 ]; then
-	    ret="was interrupted by SIG$(kill -l $((rc - 128))) from WakeupMain"
+	    test "$Signal" && from='SigTerm' || from='WakeupMain'
+	    rc=$((rc - 128))
+	    test "$rc" -eq 15 || { warn='WARNING: '; norm=''; }
+	    ret="was interrupted$norm by SIG$(kill -l $rc) from $from"
 	else
-	    ret="returned exit-code=$rc"
+	    test "$rc" -eq 0 || { warn='WARNING: '; norm=''; }
+	    ret="returned$norm with exit-code=$rc"
 	fi
-	LogDbg "'sleep' (PID=$SleepPID) $ret"
+	LogDbg "$warn'sleep' (PID=$SleepPID) $ret"
 	SleepPID=
     else
 	LogDbg "Signal=$Signal"
