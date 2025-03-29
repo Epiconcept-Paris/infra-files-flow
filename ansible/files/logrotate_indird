@@ -9,6 +9,6 @@
     create 644 root root
     sharedscripts
     postrotate
-      /usr/local/bin/indirdctl resetlog
+      /usr/local/bin/indirdctl resetlog > /dev/null
     endscript
 }
