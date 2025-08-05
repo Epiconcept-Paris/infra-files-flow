@@ -24,7 +24,13 @@ check)
 				if [[ "$result" =~ "failed" ]]; then echo "$servicetype@$i.service (failed) $result"
 				elif [[ "$result" =~ "dead" && $servicetype == "indird" ]]; then echo "$servicetype@$i.service (dead)"; fi
 			done
-		done
+                        IFS=$'\n'
+                        for i in $services; do
+                                service=$(echo $i |sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
+                                result=$(echo "$list" | grep "$service")
+                                if [ -z "$result" ]; then echo "$service (non déclaré)"; fi
+                        done
+		done | sort -u
 	fi
 	;;
 debug)
