@@ -60,7 +60,7 @@
       become: True
 
     - name: dépot configuration
-      tags: ['reconf']
+      tags: ['reconf', 'procom3']
       copy:
         src: "{{ tmpconffile }}{{ ansible_hostname }}"
         dest: "{{ conffile }}"
@@ -69,7 +69,7 @@
       register: chgconf
 
     - name: dépot services
-      tags: ['install']
+      tags: ['install', 'procom3']
       copy: 
         src: "{{ srcdir }}/{{ item }}"
         dest: "{{ systemddir }}"
@@ -81,7 +81,7 @@
       become: True
 
     - name: setup service indird
-      tags: ['install']
+      tags: ['install', 'procom3']
       service:
         name: indird@{}
         enabled: False
