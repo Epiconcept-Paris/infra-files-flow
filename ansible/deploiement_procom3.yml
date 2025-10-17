@@ -89,7 +89,7 @@
       become: True
 
     - name: lister les services
-      tags: ['reconf', 'install']
+      tags: ['reconf', 'install', 'procom3']
       shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
       register: services
       changed_when: False
@@ -100,13 +100,13 @@
         state: reloaded
       when: chgconf.changed == true
     - name: mode restart
-      tags: ['install']
+      tags: ['install', 'procom3']
       set_fact:
         state: restarted
       when: chgscript.changed == true
 
     - name: setup services indird@service
-      tags: ['reconf', 'install']
+      tags: ['reconf', 'install', 'procom3']
       service:
         name: "indird@{{ item }}"
         enabled: False
@@ -116,7 +116,7 @@
       when: services is not skipped and state is defined
 
     - name: dépot logrotate
-      tags: ['logrotate', 'install']
+      tags: ['logrotate', 'install', 'procom3']
       copy:
         src: "files/logrotate_indird"
         dest: "/etc/logrotate.d/indird"
