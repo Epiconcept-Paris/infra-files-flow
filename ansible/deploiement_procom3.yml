@@ -44,7 +44,7 @@
       become: True
 
     - name: dépot sonde norme
-      tags: ['scripts']
+      tags: ['scripts', 'procom3']
       copy: 
         src: "files/normed_indird.sh"
         dest: "{{ bindir }}/norme.d/indird.sh"
@@ -52,7 +52,7 @@
       become: True
 
     - name: dépot sonde state
-      tags: ['scripts']
+      tags: ['scripts', 'procom3']
       copy: 
         src: "files/stated_indird"
         dest: "{{ bindir }}/state.d/indird"
