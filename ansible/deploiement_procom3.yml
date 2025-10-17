@@ -14,7 +14,7 @@
   
   tasks:
     - name: gestion paramètre
-      tags: ['reconf', 'install']
+      tags: ['reconf', 'install', 'procom3']
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
