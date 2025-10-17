@@ -1,56 +1,8 @@
 ---
 
-- hosts: localhost
-  connection: local
-  tags: ['local', 'reconf', 'always']
-  gather_facts: False
+# playbook dédié au déploiement progressif de la solution sur procom3 (ou tout autre suivant)
 
-  tasks:
-    - name: test des binaires nécessaires
-      command: "which {{ item }}"
-      changed_when: false
-      failed_when: installed.rc not in [0]
-      register: installed
-      with_items: 
-        - jq
-        - yaml2json
-
-    - name: test des chemins nécessaires
-      stat:
-        path: "{{ item }}"
-      with_items: 
-        - "{{ path_repo_infra_data_misc }}"
-        - "{{ path_repo_base }}"
-      register: path_exists
-
-    - name: assertion sur les chemins nécessaires
-      assert: 
-        that: "{{ item.stat.exists }}"
-        fail_msg: "{{ item.item }} manquant"
-        quiet: yes
-      with_items: "{{ path_exists.results }}"
-
-    - name: extraction configuration
-      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
-      changed_when: False
-      with_items: 
-        - procom1
-        - profntd1
-        - profnte1
-        - prefnt2
-        - profntj1
-        - profntr1
-        - profnts1
-        - procom3
-      register: out
-    - debug: var=out
-
-    - name: copy procom1 conf for procom3 (prepare transition)
-      shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}procom3"
-
-#TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
-
-- hosts: procom1 profntd1 profnte1 prefnt2 profntj1 profntr1 profnts1 #procom3
+- hosts: procom3
   gather_facts: True
 
   vars:
@@ -66,16 +18,16 @@
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
-    - name: dépot bash-static
-      tags: ['install']
-      copy:
-        src: files/bash-static
-        dest: /bin/bash-static
-        mode: 0755
-      become: true
+    # - name: dépot bash-static
+    #   tags: ['install', 'procom3']
+    #   copy:
+    #     src: files/bash-static
+    #     dest: /bin/bash-static
+    #     mode: 0755
+    #   become: true
 
     - name: dépot script indird
-      tags: ['install']
+      tags: ['install', 'procom3']
       copy: 
         src: "{{ srcdir }}/indird"
         dest: "{{ bindir }}"
