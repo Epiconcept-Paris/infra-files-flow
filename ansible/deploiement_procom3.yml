@@ -36,7 +36,7 @@
       register: chgscript
 
     - name: dépot script de contrôle
-      tags: ['scripts']
+      tags: ['scripts', 'procom3']
       copy: 
         src: "files/indirdctl"
         dest: "{{ bindir }}"
