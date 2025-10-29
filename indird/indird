@@ -4,6 +4,9 @@
 #
 #	requires package jq
 #
+# shellcheck disable=SC2086     # Double quote to prevent word splitting
+# shellcheck disable=SC2031	# Cmd was modified in a subshell
+#
 Prg=$(basename $0)
 test "$2" = 'wakeup' && trap '' HUP
 IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
@@ -223,6 +226,9 @@ ChkConf()
 	# method has fixed values
 	val="${Conf["filetypes.$key.method"]}"
 	test "$val" = 'fileglob' -o "$val" = 'regexp' || ConfErr "filetypes.$key.method has invalid value \"$val\""
+	# optional orderby has fixed values
+	val="${Conf["filetypes.$key.orderby"]}"
+	test "$val" = 'mtime' -o "$val" = 'alpha' || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
     done
 
     # Check actions dict
@@ -650,15 +656,27 @@ do
 	    pat="${Conf["filetypes.$ft.pattern"]}"
 
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
-		Files="$pat"
+		if [ "${Conf["filetypes.$ft.orderby"]}" = 'mtime' ]; then
+		    Files=$(ls -tr $pat)
+		    ord='mtime'
+		else
+		    Files="$pat"		# alpha
+		    ord='alpha'
+		fi
 		met='fglob'
 	    else	# regexp
-		Files=$(ls | grep "$pat")
+		if [ "${Conf["filetypes.$ft.orderby"]}" = 'mtime' ]; then
+		    Files=$(ls -tr | grep "$pat")
+		    ord='mtime'
+		else
+		    Files=$(ls | grep "$pat")	# alpha
+		    ord='alpha'
+		fi
 		met='regex'
 	    fi
 
 	    #   Loop on matching files {
-	    LogDbg "ft='$ft' pat=\"$pat\"' met=$met Files=\"$Files"\"
+	    LogDbg "ft='$ft' pat=\"$pat\"' met=$met ord=$ord Files=\"$Files"\"
 	    for file in $Files
 	    do
 		test -f "$file" || continue	# Handle no match

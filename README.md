@@ -115,8 +115,9 @@ Le fichier de configuration de `indird` est au format JSON. Au niveau principal,
 
 * `filetypes` [o] - Un objet global dont chaque membre est un objet décrivant un type de fichier à gérer par `indird`, avec les (sous-)membres obligatoires suivants :
   - `desc` - un texte de description du type, pour usage dans les logs
-  - `method` - la méthode, `fileglob` ou `regexp`, du filtre de nom de fichiers. La méthode `fileglob` utilise le *matching* du shell (`bash`), le méthode `regexp` utilise `grep`
+  - `method` - la méthode, `fileglob` ou `regexp`, du filtre de nom de fichiers. La méthode `fileglob` utilise le *matching* du shell (`bash`), le méthode `regexp` (par défaut) utilise `grep`
   - `pattern` - le motif pour le filtre
+  - `orderby` - l'ordre de tri, `mtime` ou `alpha`, des fichiers sélectionnés par le filtre de nom de fichiers. L'ordre `mtime` correspond aux plus anciens fichiers en premier, l'ordre `alpha` (par défaut) à l'ordre alphabétique croissant
 
 * `actions` [o] - Un objet global dont chaque membre est un objet décrivant une commande shell principale à exécuter (passée à `sh -c`) sur le fichier, avec les (sous-)membres suivants:
   - `desc` [f] - un texte de description
