@@ -83,13 +83,14 @@
       become: True
       register: chgscript
 
-    - name: dépot script de contrôle
+    - name: dépot scripts de contrôle et de rsync supervisés
       tags: ['scripts']
       copy: 
-        src: "files/indirdctl"
+        src: "files/{{ item }}"
         dest: "{{ bindir }}"
         mode: 0755
       become: True
+      with_items: ['indirdctl', 'indird_rsync.sh']
 
     - name: dépot sonde norme
       tags: ['scripts']
