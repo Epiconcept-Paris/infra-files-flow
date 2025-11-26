@@ -105,10 +105,24 @@ LogInfo()
     LogMsg "$1" 'info'
 }
 
-# params <message>
+# Log debug message "$1" in the debug file only (not syslog)
 LogDbg()
 {
-    test "${Conf['debug']}" = 'true' && LogMsg "$1" # 'debug'
+    #global Tag Config
+    local debug sp
+
+    #   Get indird.conf's indent (of first JSON member)
+    sp=$(sed -n '/^{/,/^ *"/s/^\(  *\)".*$/\1/p' "$Config" | head -1)	# head -1 to be safe
+
+    if [ -v Conf['path'] ]; then
+	debug="${Conf['debug']}"
+    else
+	#   If Conf has not been loaded (WakeupMain), just extract our $Tag's debug
+	debug=$(sed -n "/^$sp\"$Tag\": *{/,/^$sp}/s/^$sp$sp\"debug\": \(.*\), */\1/p" $Config)
+    fi
+    #	As LogMsg below has no 2nd argument, it will NOT call logger
+    #	  (it would do it if we pass the 'debug' log-level)
+    test "$debug" = 'true' && LogMsg "$1"	# 'debug'
 }
 
 #
@@ -387,6 +401,7 @@ ChkConf()
 # params <instance>
 WakeupMain()
 {
+    #global wDelay
     local MainPID pid
 
     eval $(systemctl -p MainPID show $1)
@@ -462,6 +477,15 @@ command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 command -v lsof >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
 
 Tag=$1
+#
+#   Handle wakeup calls from our associated @.path
+#
+wDelay='0.2'	# Delay to wait if a file is open for Writing (used by WakeupMain)
+if [ "$2" = 'wakeup' ]; then
+    WakeupMain "$Prg@$Tag"
+    exit 0
+fi
+
 declare -A Conf
 GetConf $Config $Tag	# Check that $Tag exists, load config and set Host var
 #
@@ -490,22 +514,14 @@ if [ "$2" = 'check' -o "$2" = 'nlcheck' ]; then
     test "$isTty" && echo "Config $Config for $Tag OK"
     exit 0
 fi
-test -z "$2" -o "$2" = 'wakeup' || Usage	# Reject unknown 2nd arg
+test "$2" && Usage	# Reject unknown 2nd arg
 
 #   Ensure we are now root
 test "$isRoot" || LogExit "must be run as root" $ExNotRoot
 
 #
-#   Handle wakeup calls from our associated .path
-#
-if [ "$2" ]; then
-    WakeupMain "$Prg@$Tag"
-    exit 0
-fi
-#
 #   Trap signals and notify systemd we are done with our init
 #
-wDelay='0.2'
 Signal=
 SleepPID=
 trap SigHup   HUP
