@@ -1,6 +1,6 @@
 ---
 
-tmpconffile: "/tmp/infra-files-flow_"
+tmpconffile: "/tmp/{{ ansible_ssh_user | default(ansible_user_id | default('unknown')) }}_infra-files-flow_"
 
 path_repo_base: "{{ playbook_dir }}/../../"
 path_repo_infra_data_misc: "{{ path_repo_base }}/infra-data-misc"
