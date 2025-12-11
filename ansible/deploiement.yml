@@ -30,6 +30,10 @@
         quiet: yes
       with_items: "{{ path_exists.results }}"
 
+    - file:
+        path: "{{ tmpconffile }}"
+        state: directory
+
     - name: extraction configuration
       shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
       changed_when: False
@@ -44,11 +48,7 @@
         - procom3
       register: out
     - debug: var=out
-
-    - file:
-        path: "{{ tmpconffile }}"
-        state: directory
-        
+      
     - name: copy procom1 conf for procom3 (prepare transition)
       shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}procom3"
 
