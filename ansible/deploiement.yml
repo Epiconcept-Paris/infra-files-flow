@@ -3,7 +3,7 @@
 - hosts: localhost
   connection: local
   tags: ['local', 'reconf', 'always']
-  gather_facts: False
+  gather_facts: true
 
   tasks:
     - name: test des binaires nécessaires
