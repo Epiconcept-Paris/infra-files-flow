@@ -45,6 +45,10 @@
       register: out
     - debug: var=out
 
+    - file:
+        path: "{{ tmpconffile }}"
+        state: directory
+        
     - name: copy procom1 conf for procom3 (prepare transition)
       shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}procom3"
 
