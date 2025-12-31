@@ -40,6 +40,13 @@ Stamp()
     date "+$StampFmt $1"
 }
 
+#   Output $1 file's mtime in ms
+mTime()
+{
+    set -- $(ls -ld --time-style='+%s %N' "$1");
+    echo $6$(expr "$7" : '\(...\)')
+}
+
 # params <message> <logger-level>
 LogMsg()
 {
@@ -53,38 +60,12 @@ LogMsg()
     test "$2" && logger -p daemon.$2 "$1"
 }
 
-# params none
-Usage()
-{
-    # global ExUsage
-    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | nlcheck ]" 'crit'
-    exit $ExUsage
-}
-
 # params <message> <exit-code>
 LogExit()
 {
     # global Prg
     LogMsg "$Prg: $1" 'err'
     exit $2
-}
-
-# params <message> [ <exit-code> ]
-ConfErr()
-{
-    # global Config Tag ExCfgErr
-    local xc
-
-    #	If an exit code is specified, the error is about a value
-    #	external to the config itself ('host', 'path' or 'shell')
-    if [ "$2" ]; then
-	# if we are in non-local check mode, just return
-	test "$ChkMode" = 'nlcheck' && return
-	xc=$2
-    else
-	xc=$ExCfgErr
-    fi
-    LogExit "in $Config for $Tag, $1" $xc
 }
 
 # params <message>
@@ -123,6 +104,32 @@ LogDbg()
     #	As LogMsg below has no 2nd argument, it will NOT call logger
     #	  (it would do it if we pass the 'debug' log-level)
     test "$debug" = 'true' && LogMsg "$1"	# 'debug'
+}
+
+# params none
+Usage()
+{
+    # global ExUsage
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | nlcheck ]" 'crit'
+    exit $ExUsage
+}
+
+# params <message> [ <exit-code> ]
+ConfErr()
+{
+    # global Config Tag ExCfgErr
+    local xc
+
+    #	If an exit code is specified, the error is about a value
+    #	external to the config itself ('host', 'path' or 'shell')
+    if [ "$2" ]; then
+	# if we are in non-local check mode, just return
+	test "$ChkMode" = 'nlcheck' && return
+	xc=$2
+    else
+	xc=$ExCfgErr
+    fi
+    LogExit "in $Config for $Tag, $1" $xc
 }
 
 #
@@ -572,13 +579,6 @@ StepLogs()
 	    logger -p "${Conf["$log.args.facility"]}.${Conf["$log.args.level"]}" "$3"
 	fi
     done
-}
-
-#   Output $1 file's mtime in ms
-mTime()
-{
-    set -- $(ls -ld --time-style='+%s %N' "$1");
-    echo $6$(expr "$7" : '\(...\)')
 }
 
 #   Output $1 in milliseconds as YYYY-mm-dd HH:MM:SS.NNN
