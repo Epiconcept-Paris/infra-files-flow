@@ -249,7 +249,7 @@ ChkConf()
 	test "$val" = 'fileglob' -o "$val" = 'regexp' || ConfErr "filetypes.$key.method has invalid value \"$val\""
 	# optional orderby has fixed values
 	val="${Conf["filetypes.$key.orderby"]}"
-	test "$val" = 'mtime' -o "$val" = 'alpha' || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
+	test "$val" = 'mtime' -o "$val" = 'alpha' -o "$val" = '' || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
     done
 
     # Check actions dict
