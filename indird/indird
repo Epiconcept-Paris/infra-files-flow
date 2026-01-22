@@ -2,15 +2,21 @@
 #
 #	indird - Watch a directory for incoming files
 #
-#	requires package jq
+#	requires package jq, optionally lsof
 #
 # shellcheck disable=SC2086     # Double quote to prevent word splitting
 # shellcheck disable=SC2031	# Cmd was modified in a subshell
 #
+test "$2" = 'wakeup' && trap '' HUP	# trap HUP as early as possible
 Prg=$(basename $0)
-test "$2" = 'wakeup' && trap '' HUP
-IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"		# Derive prefix from $Prg
-eval "Config=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
+IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"	# Derive prefix from $Prg
+
+Use_lsof='y'	# 'y' to use lsof, else use $Conf['path']/.ok/<file>
+
+# IMPORTANT NOTE: keep wDelay with a decimal '.' (e.g. 5.0) so that other sleep
+#		  commands cannot be mistaken for sleep $wDelay by WakeupMain
+wDelay='0.2'	# Delay to sleep(1) if at least one file is open for Writing
+
 LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
 TmpDir=/tmp
@@ -25,14 +31,70 @@ ExNotRoot=3
 ExCfgErr=4
 ExNotHost=5
 ExNoPath=6
+ExTagCfg=7
+ExNoCache=8
 
+#   We assume that no TTY means that we run as a systemd service
 tty >/dev/null && isTty=y
-test $(id -u) -eq 0 && isRoot=y
-test -z "$isTty" -a "$isRoot" && exec 2>>$LogFile
+test "$(id -u)" -eq 0 && isRoot=y
+if [ "$isTty" ]; then
+    Bold=$(tput bold)	# for headers
+    Norm=$(tput sgr0)	# header end
+else
+    test "$isRoot" && exec 2>>$LogFile
+fi
 
 #
 #------ Functions ------------------------------------------------------
 #
+onTTY()
+{
+    # global isTty
+
+    test "$isTty" || return
+    "$@"
+}
+
+# Output \n to stderr if output is a TTY
+EOL()
+{
+    onTTY echo >&2
+}
+
+# Show $1 in bold
+Bold()
+{
+    # global Bold Norm
+
+    printf "$Bold"; printf "$1"; printf "$Norm"
+}
+
+# Join lines on stdin with separator $1
+lJoin()
+{
+    sed ':a; N; $!ba; s/\n/'"$1/g";
+}
+
+# Is str $2 in $3(or ' ')-separated list $1 ?
+isInL()
+{
+    local s
+
+    s="${3:- }"
+    expr "$s$1$s" : ".*$s$2$s" >/dev/null
+}
+
+#   return plural letter $3(or 's') for $2(or ' ')-separated list $1
+plurl()
+{
+    local s
+
+    s="${2:- }"
+    expr "$1" : "[^$s]*$s" >/dev/null || return
+    echo "${3:-s}"
+}
+
+# Return date+time $1 formatted by StampFmt
 Stamp()
 {
     # global StampFmt
@@ -44,15 +106,26 @@ Stamp()
 mTime()
 {
     set -- $(ls -ld --time-style='+%s %N' "$1");
-    echo $6$(expr "$7" : '\(...\)')
+    echo "$6$(expr "$7" : '\(...\)')"
+}
+
+#   Output message $1, folding lines on spaces if necessary
+Fold()
+{
+    local ncol fcmd
+
+    fcmd=$(command -v 'fold')
+    test "$COLUMNS" && ncol="$COLUMNS" || ncol=$(stty -a | sed -nr 's/^.* columns ([0-9]+); .*$/\1/p')
+    test "$fcmd" -a "$ncol" || { echo "$1"; return; }
+    $fcmd -s -w $ncol <<< "$1"
 }
 
 # params <message> <logger-level>
 LogMsg()
 {
-    # global isTty Logfile
+    # global isTty Tag Logfile
     if [ "$isTty" ]; then
-	echo "$1" >&2
+	Fold "$1" >&2
 	return
     fi
     Stamp "[$Tag] $1" >>$LogFile
@@ -65,7 +138,7 @@ LogExit()
 {
     # global Prg
     LogMsg "$Prg: $1" 'err'
-    exit $2
+    test "$2" && exit $2
 }
 
 # params <message>
@@ -89,36 +162,35 @@ LogInfo()
 # Log debug message "$1" in the debug file only (not syslog)
 LogDbg()
 {
-    #global Tag Config
-    local debug sp
+    #global Conf Debug
+    local debug
 
-    #   Get indird.conf's indent (of first JSON member)
-    sp=$(sed -n '/^{/,/^ *"/s/^\(  *\)".*$/\1/p' "$Config" | head -1)	# head -1 to be safe
-
+    debug=''
     if [ -v Conf['path'] ]; then
 	debug="${Conf['debug']}"
-    else
-	#   If Conf has not been loaded (WakeupMain), just extract our $Tag's debug
-	debug=$(sed -n "/^$sp\"$Tag\": *{/,/^$sp}/s/^$sp$sp\"debug\": \(.*\), */\1/p" $Config)
+    elif [ -f "$Debug" ]; then
+	debug='true'
     fi
     #	As LogMsg below has no 2nd argument, it will NOT call logger
     #	  (it would do it if we pass the 'debug' log-level)
     test "$debug" = 'true' && LogMsg "$1"	# 'debug'
 }
 
+
 # params none
 Usage()
 {
     # global ExUsage
-    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | nlcheck ]" 'crit'
-    exit $ExUsage
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | split | cache <sub-cmd> ]" 'crit'
+    LogMsg "       where <sub-cmd> is [ gen | del | chk | prt ]" 'crit'
+    exit ${1:-$ExUsage}
 }
 
 # params <message> [ <exit-code> ]
 ConfErr()
 {
-    # global Config Tag ExCfgErr
-    local xc
+    # global ChkMode ExCfgErr FromCache Cache CfgTag
+    local xc cfg
 
     #	If an exit code is specified, the error is about a value
     #	external to the config itself ('host', 'path' or 'shell')
@@ -129,7 +201,9 @@ ConfErr()
     else
 	xc=$ExCfgErr
     fi
-    LogExit "in $Config for $Tag, $1" $xc
+    EOL
+    test "$FromCache" && cfg="$Cache" || cfg="$CfgTag"
+    LogExit "in $cfg, $1" $xc
 }
 
 #
@@ -138,21 +212,28 @@ ConfErr()
 # params <config-file> <tag>
 GetConf()
 {
-    # global Conf Prg Host
-    local cnf err line tags
+    # global Conf Prg HasTag Host
+    local err cnf line tags
+
+    onTTY Bold "Reading $1 " >&2
 
     err=$(mktemp)
     # Be really defensive (as we shall also need mktemp later)
-    test -f "$err" || LogExit "cannot create temp file $err ??" $ExCfgErr
+    test -f "$err" || { EOL; LogExit "cannot create temp file $err ??" $ExCfgErr; }
 
     # Full-line # comments are allowed, \n changed to ;
     if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".$2" 2>$err); then
-	ParseConf "$cnf"
+	EOL
+	echo "$cnf"
 	rm $err
+	xc=$?
     else
+	xc=$ExCfgErr
+	EOL
+	#   Log possible jq errors
 	if [ -s "$err" ]; then
 	    LogMsg "$Prg: $1 has errors:"
-	    while read line
+	    while read -r line
 	    do
 		LogMsg "    $line"
 	    done <$err
@@ -162,9 +243,25 @@ GetConf()
         rm $err
 	# if tag unknown, list known tags
 	tags=$(sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")')
-	LogExit "\"$2\" tag unknown in $1; known tags: $tags" $ExCfgErr
+	nb=$(wc -w <<< "$tags")
+	if [ "$HasTag" ]; then
+	    if [ "$nb" -eq 1 ]; then
+		LogExit "tag '$tags' in $1 should be '$2'!" $ExCfgErr
+	    else
+		if isInL "$tags" 'path' && isInL "$tags" 'sleep'; then
+		    LogExit "content of $1 should be wrapped in a single '$2' object" $ExCfgErr
+		else
+		    LogExit "structure of $1 is invalid" $ExCfgErr
+		fi
+	    fi
+	else
+	    LogExit "\"$2\" tag unknown in $1"
+	    LogMsg "Known tag$(plurl "$tags"): $tags" 'err'
+	    Usage $ExCfgErr
+	fi
     fi
     Host=$(hostname)	# Create/update global with latest value
+    return $xc
 }
 
 #
@@ -175,6 +272,9 @@ ParseConf()
 {
     # global Conf
     local JSON Path Key Val
+
+    # Show progress only on Main call (no Path)
+    test "$2" || onTTY Bold "Parsing $Config " >&2
 
     JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
     test "$2" && Path="$2."
@@ -189,6 +289,7 @@ ParseConf()
             Conf["$Path$Key"]="$Val"
         fi
     done <<< "$JSON"
+    test "$2" || EOL
 }
 
 #
@@ -199,6 +300,8 @@ ChkConf()
 {
     # global Conf ChkMode Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
+
+    onTTY Bold "Checking $Config " >&2
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -224,7 +327,7 @@ ChkConf()
 	val=$(command -v "${Conf['shell']}") && Shell="$val" || ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath
     fi
 
-    #	debug: if param exists, it must have value 'true'
+    #	debug: if param exists, it must have value 'true' or 'false'
     if [ -v Conf['debug'] ]; then
 	val="${Conf['debug']}"
 	test "$val" = 'true' -o "$val" = 'false' || ConfErr "debug parameter has value \"$val\", not 'true' or 'false'"
@@ -362,7 +465,7 @@ ChkConf()
 	    done
 	done
     done
-    test "$ChkMode" = 'nlcheck' && return	# If non-local, we are done
+    test "$ChkMode" = 'nlcheck' && { EOL; return; }	# If non-local, we are done
 
     # Make sure our .path has its dir
     mkdir -p $1		# make our rundir if necessary
@@ -400,6 +503,19 @@ ChkConf()
     CmdEnv="$CmdEnv${EnvPfx}HOST=\"$Host\" "
     CmdEnv="$CmdEnv${EnvPfx}CONF=\"$Tag\" "
     CmdEnv="$CmdEnv${EnvPfx}PATH=\"${Conf['path']}\" "
+    EOL
+}
+
+PrettyCache()
+{
+    # global Cache
+    local val ll
+
+    val=$(sed 's/\([ (]\)\[\([a-z]\)/\1\n  [\2/g; s/ )$/\n)/' "$Cache" | sed 's/\._keys/.%keys/')
+    ll=$(($(wc -l <<< "$val") - 1))
+    sed -n 1p <<< "$val"
+    sed -n "2,${ll}p" <<< "$val" | LANG=C sort | sed 's/\.%keys/\._keys/'
+    sed -n '$p' <<< "$val"
 }
 
 #
@@ -411,7 +527,7 @@ WakeupMain()
     #global wDelay
     local MainPID pid
 
-    eval $(systemctl -p MainPID show $1)
+    eval "$(systemctl -p MainPID show $1)"
     if [ 0$MainPID -gt 0 ]; then
 	# ps -ef columns: 1:UID 2:PID 3:PPID 4:C 5:STIME 6:TTY 7:TIME 8:CMD 9:ARG
 	pid=$(ps -ef | awk "\$3==$MainPID && \$8==\"sleep\" && \$9!=\"$wDelay\" {print \$2}")
@@ -439,6 +555,14 @@ ConfigPaths()
     do
 	echo "$key=\"${Conf[$key]}\""
     done | sort
+}
+
+#   Ensure that we are root
+MustBeRoot()
+{
+    # global isRoot ExNotRoot
+
+    test "$isRoot" || LogExit "must be run as root" $ExNotRoot
 }
 
 GotSig()
@@ -479,32 +603,93 @@ SigUsr2()
 #   We need a tag as our first argument
 #   so we can load and check our config
 #
-test "$1" || Usage
-command -v jq >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
-command -v lsof >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
+command -v 'jq' >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
+if [ "$Use_lsof" = 'y' ]; then
+    command -v 'lsof' >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
+fi
 
+eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Prg.d}"		# Derive default cfgdir from $Prg
+eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
+
+eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
+test -f "$CfgDir/.ok" && Use_lsof='n'
+
+test "$1" || Usage
 Tag=$1
+TagDir="$CfgDir/$Tag"		# Per-Tag directory
+TagCfg="$TagDir/config.json"	# Per-Tag config file
+Cache="$TagDir/cache.sh"	# Per-Tag config-cache file
+Debug="$TagDir/debug"		# Per-Tag debug file (for WakeupMain)
+if [ -s "$TagCfg" ]; then
+    Config="$TagCfg"
+    CfgTag="$Config"		# For messages
+    HasTag='y'			# Per-Tag config used
+else
+    Config="$AllCfg"
+    CfgTag="$Config for $Tag"	# For messages
+    HasTag=			# All-Tag config used
+fi
+Cmd="$2"			# Optional command on tag
+test "$NLocal" && ChkMode='nlcheck'	# Legacy
+
 #
 #   Handle wakeup calls from our associated @.path
 #
-wDelay='0.2'	# Delay to wait if a file is open for Writing (used by WakeupMain)
-if [ "$2" = 'wakeup' ]; then
+if [ "$Cmd" = 'wakeup' ]; then
     WakeupMain "$Prg@$Tag"
     exit 0
 fi
 
-declare -A Conf
-GetConf $Config $Tag	# Check that $Tag exists, load config and set Host var
+#   Check arguments
+case "$Cmd" in
+    'config'|'check') NoCache='y';;
+    'split')
+	test "$HasTag" && LogExit "file $Config already exists. Rename or delete it" $ExTagCfg
+	MustBeRoot
+	;;
+    'cache')
+	SubCmd="$3"
+	case "$SubCmd" in
+	    'gen')  MustBeRoot; rm -f "$Cache" ;;
+	    'del')  MustBeRoot
+		    rm "$Cache" 2>/dev/null && onTTY Bold "Removed '$Cache'\n"
+		    exit 0
+		    ;;
+	    'chk')  ;;
+	    'prt')  test -s "$Cache" || LogExit "file '$Cache' does not (yet) exist" $ExNoCache
+		    PrettyCache
+		    exit 0
+		    ;;
+	    *)	Usage;;
+	esac
+	;;
+    '') ;;	# 2nd arg may be absent
+    *)	Usage;;	# Reject unknown 2nd arg
+esac
+
+if test -z "$NoCache" -a -s "$Cache"; then
+    if [ "$SubCmd" = 'chk' -o "$SubCmd" = 'prt' ]; then
+	FromCache='c'	# 'c' as sub-Commands
+    elif [ "$(mTime "$Cache")" -gt "$(mTime "$Config")" ]; then
+	FromCache='t'	# 't' as newer-Time
+    fi
+fi
+if [ "$FromCache" ]; then
+    onTTY Bold "Loading config from $Cache\n"
+    source "$Cache" || LogExit "failed to source $Cache" $?
+else
+    declare -A Conf
+    Cnf=$(GetConf $Config $Tag) || exit $?	# May exit on error ($Tag unknown, $Config access)
+    ParseConf "$Cnf"				# Fills Conf and sets Host var
+fi
 #
 #   Handle config utility: output config paths without checks
 #
-if [ "$2" = 'config' ]; then
-    test "$isTty" || LogExit "'$2' command is for command-line only" $ExSyntax
+if [ "$Cmd" = 'config' ]; then
+    test "$isTty" || LogExit "command '$Cmd' is for command-line only" $ExSyntax
     ConfigPaths
     exit 0
 fi
-
-test "$2" = 'check' -o "$2" = 'nlcheck' && ChkMode=$2
 
 # These global variables will be updated by ChkConf
 Shell='sh'
@@ -513,25 +698,41 @@ CmdEnv=
 
 ChkConf $RunDir
 #echo "CmdEnv=[$CmdEnv]"; exit 0
+test "$FromCache" || {
+    if [ "$isRoot" ]; then
+	test -d "$TagDir" || mkdir -p "$TagDir"
+	declare -p Conf >"$Cache"	# Create or refrech cache
+    fi
+}
 
 #
 #   Handle check / nlcheck utilities: just exit now, display msg if tty
 #
-if [ "$2" = 'check' -o "$2" = 'nlcheck' ]; then
-    test "$isTty" && echo "Config $Config for $Tag OK"
+if [ "$Cmd" = 'check' -o "$Cmd" = 'nlcheck' ]; then
+    onTTY Bold "Config   $CfgTag OK\n"
+    exit 0
+elif [ "$Cmd" = 'split' ]; then
+    test -d "$TagDir" || mkdir -p "$TagDir"
+    echo "{\"$2\":$Cnf}" | jq . >$TagCfg
+elif [ "$Cmd" = 'cache' ]; then
+    #	'del' & 'prt' already exited
+    #	'gen' & 'chk' have been processed, just exit
+    case "$SubCmd" in
+	'gen') ;;
+	'chk') onTTY Bold "Cache $Cache checks OK\n" ;;
+	*) LogExit "unknown 'cache' subcommand '$SubCmd'" $ExSyntax ;;
+    esac
     exit 0
 fi
-test "$2" && Usage	# Reject unknown 2nd arg
 
-#   Ensure we are now root
-test "$isRoot" || LogExit "must be run as root" $ExNotRoot
+MustBeRoot
 
 #
 #   Trap signals and notify systemd we are done with our init
 #
 Signal=
 SleepPID=
-trap SigHup   HUP
+trap SigHup  HUP
 trap ''      INT QUIT
 trap SigTerm TERM
 trap SigUsr1 USR1
@@ -545,16 +746,27 @@ systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
 # FindWriter outputs the command (if any) currently writing to file $1
 FindWriter()
 {
-    local fm cmd mode
+    # global Use_lsof Conf
+    local ok fm sz cmd mode
+
+    if [ "$Use_lsof" != 'y' ]; then
+	ok="${Conf['path']}/.ok/$1"
+	if [ -f "$ok" ]; then
+	    rm "$ok" && LogDbg "  Removed $ok"
+	else
+	    echo "some command"
+	fi
+	return
+    fi
 
     # lsof columns: 1:COMMAND 2:PID 3:USER 4:FD 5:TYPE 6:DEVICE 7:SIZE 8:NODE 9:NAME
     #	We put cmd last just in (the very unlikely) case it would contain spaces.
-    lsof "$1" | awk '$1 != "COMMAND"{print $4,$7,$1}' | while read fm sz cmd
+    lsof "$1" | awk '$1 != "COMMAND"{print $4,$7,$1}' | while read -r fm sz cmd
     do
 	# Extract mode from file-descriptor+mode
 	mode=$(expr "$fm" : '[0-9][0-9]*\(.*\)')
 	LogDbg "  File '$1' mode='$mode' size=$sz cmd='$cmd'"
-	test "$mode" = 'w' && echo "$cmd" && break
+	test "$mode" = 'w' && echo "'$cmd'" && break
     done
 }
 
@@ -617,9 +829,12 @@ do
 	declare -A Conf
 
 	# Then re-read and re-check the config
-	GetConf $Config $Tag
-	ChkConf $RunDir
-
+	Cnf=$(GetConf $Config $Tag) && {
+	    ParseConf "$Cnf"
+	    ChkConf $RunDir		# May exit
+	    declare -p Conf >"$Cache"	# Refrech cache
+	    LogNote "Config cached in $Cache"
+	}
 	Signal=
     elif [ "$Signal" = 'Usr2' ]; then
 	LogNote "Change x mode SIGUSR2"
@@ -663,7 +878,7 @@ do
 	NbS=0	# number of files with at least one success action
 	NbW=0	# number of files being written to
 	LastMod=$Mod
-	LogDbg "Examining "${Conf['path']}"..."
+	LogDbg "Examining \"${Conf['path']}\"..."
 
 	#   Loop on all 'rules' members (filetypes) {
 	for ft in ${Conf['rules._keys']}
@@ -757,8 +972,8 @@ do
 			#	out all		(combo)
 			#	err all		(combo)
 			#	out err all	(combo)
-			StdIns=`echo "$StdIns" | tr ' ' '\n' | sort -ru`
-			StdIns=`echo -n "$StdIns" | tr '\n' ' '`
+			StdIns=$(echo "$StdIns" | tr ' ' '\n' | sort -ru)
+			StdIns=$(echo -n "$StdIns" | tr '\n' ' ')
 		    fi
 
 		    # Go !
