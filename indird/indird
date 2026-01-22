@@ -181,6 +181,7 @@ LogDbg()
 Usage()
 {
     # global ExUsage
+
     LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | split | cache <sub-cmd> ]" 'crit'
     LogMsg "       where <sub-cmd> is [ gen | del | chk | prt ]" 'crit'
     exit ${1:-$ExUsage}
@@ -196,7 +197,7 @@ ConfErr()
     #	external to the config itself ('host', 'path' or 'shell')
     if [ "$2" ]; then
 	# if we are in non-local check mode, just return
-	test "$ChkMode" = 'nlcheck' && return
+	test "$NLocal" && return
 	xc=$2
     else
 	xc=$ExCfgErr
@@ -309,7 +310,7 @@ ChkConf()
 	test -v Conf["$key"] || ConfErr "required '$key' property is missing"
     done
     # Make sure that ${Conf['path']} exists
-    test -d "${Conf['path']}" -o "$ChkMode" = 'nlcheck' || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
+    test -d "${Conf['path']}" -o "$NLocal" || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
     test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must be numeric, not \"$val\""
@@ -317,13 +318,13 @@ ChkConf()
 
     # Check optional config parameters
     #   hostname: if param exists, it must have value $Host
-    if [ -v Conf['host'] -a "$ChkMode" != 'nlcheck' ]; then
+    if [ -v Conf['host'] -a -z "$NLocal" ]; then
 	val="${Conf['host']}"
 	test "$Host" = "$val" || ConfErr "host \"$val\" does not match system's \"$Host\"" $ExNotHost
     fi
 
     #	shell: if param exists it must be known from 'command -v'
-    if [ -v Conf['shell'] -a "$ChkMode" != 'nlcheck' ]; then
+    if [ -v Conf['shell'] -a -z "$NLocal" ]; then
 	val=$(command -v "${Conf['shell']}") && Shell="$val" || ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath
     fi
 
@@ -465,7 +466,7 @@ ChkConf()
 	    done
 	done
     done
-    test "$ChkMode" = 'nlcheck' && { EOL; return; }	# If non-local, we are done
+    test "$NLocal" && { EOL; return; }	# If non-local, we are done
 
     # Make sure our .path has its dir
     mkdir -p $1		# make our rundir if necessary
@@ -630,7 +631,6 @@ else
     HasTag=			# All-Tag config used
 fi
 Cmd="$2"			# Optional command on tag
-test "$NLocal" && ChkMode='nlcheck'	# Legacy
 
 #
 #   Handle wakeup calls from our associated @.path
@@ -698,22 +698,23 @@ CmdEnv=
 
 ChkConf $RunDir
 #echo "CmdEnv=[$CmdEnv]"; exit 0
-test "$FromCache" || {
+test "$FromCache" || {			# If NOT FromCache ...
     if [ "$isRoot" ]; then
 	test -d "$TagDir" || mkdir -p "$TagDir"
-	declare -p Conf >"$Cache"	# Create or refrech cache
+	declare -p Conf >"$Cache"	# create or refrech cache
     fi
 }
 
 #
-#   Handle check / nlcheck utilities: just exit now, display msg if tty
+#   Handle check / split / cache utilities and exit
 #
-if [ "$Cmd" = 'check' -o "$Cmd" = 'nlcheck' ]; then
-    onTTY Bold "Config   $CfgTag OK\n"
+if [ "$Cmd" = 'check' ]; then
+    onTTY Bold "Config   $CfgTag OK\n"	# If TTY, onfirm success
     exit 0
 elif [ "$Cmd" = 'split' ]; then
-    test -d "$TagDir" || mkdir -p "$TagDir"
-    echo "{\"$2\":$Cnf}" | jq . >$TagCfg
+    test -d "$TagDir" || mkdir -p "$TagDir"	# Make $TagDir if needed
+    echo "{\"$Tag\":$Cnf}" | jq . >$TagCfg	# Save $TagCfg
+    exit 0
 elif [ "$Cmd" = 'cache' ]; then
     #	'del' & 'prt' already exited
     #	'gen' & 'chk' have been processed, just exit
@@ -725,6 +726,9 @@ elif [ "$Cmd" = 'cache' ]; then
     exit 0
 fi
 
+#
+#   Now comes the code of the service itself
+#
 MustBeRoot
 
 #
