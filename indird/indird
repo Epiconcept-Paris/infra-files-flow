@@ -701,7 +701,9 @@ ChkConf $RunDir
 test "$FromCache" || {			# If NOT FromCache ...
     if [ "$isRoot" ]; then
 	test -d "$TagDir" || mkdir -p "$TagDir"
+	test -f "$Cache" && Verb='Updated' || Verb='Created'
 	declare -p Conf >"$Cache"	# create or refrech cache
+	LogInfo "$Verb $Cache"
     fi
 }
 
@@ -714,7 +716,9 @@ if [ "$Cmd" = 'check' ]; then
 elif [ "$Cmd" = 'split' ]; then
     test -d "$TagDir" || mkdir -p "$TagDir"	# Make $TagDir if needed
     echo "{\"$Tag\":$Cnf}" | jq . >$TagCfg	# Save $TagCfg
-    exit 0
+    xc=$?
+    test "$xc" = '0' && LogInfo "Created $TagCfg"
+    exit $xc
 elif [ "$Cmd" = 'cache' ]; then
     #	'del' & 'prt' already exited
     #	'gen' & 'chk' have been processed, just exit
