@@ -10,6 +10,7 @@ Dans [github](https://github.com/Epiconcept-Paris/infra-files-flow), vous pouvez
 * [Utilitaire prérequis](#ureq)
 * [Installation du script indird](#inst)
 * [Algorithme de fonctionnement](#algo)
+* [Variables d'environnement](#envv)
 * [Fichier de configuration](#cfgf)
 * [Exemples de fichiers de configuration](#cfge)
 * [Utilitaires](#utils)
@@ -22,7 +23,7 @@ Elle se manifestent essentiellement par la prise en compte d'un répertoire `/et
 ### Gestion d'un fichier de configuration par flux
 
 Si le fichier non-vide `/etc/indird.d/<flux>/config.json` existe, il sera prise en compte préférentiellement au membre du fichier global `/etc/indird.conf` concernant le flux.
-Ce fichier `config.json` doit comporter un seul membre de premier niveau portant le nom du `<flux`, qui contiendra à son tour les paramètres du flux (dont, par exemple, `path` et `sleep`).
+Ce fichier `config.json` contient un objet JSON qui doit comporter un seul membre de premier niveau portant le nom du `<flux>` et qui contiendra à son tour les paramètres du flux (dont, par exemple, `path` et `sleep`).
 
 Il est possible de générer ce fichier en utilisant la nouvelle option `split` du script `indird`.
 Par exemple, pour un flux nommé `rdvradio` :
@@ -75,7 +76,7 @@ Cela a moins d'incidence maintenant que le cache de configuration a été implé
 
 (en attente de l'implémentation de cette prise en compte)
 
-### Modification de la vérification non-locale des fichiers de configuration
+### <a name="nloc">Modification de la vérification non-locale des fichiers de configuration</a>
 
 La vérification non-locale (hors de la machine sur laquelle il est destiné à être utilisé) du fichier de configuration se faisait précédemment avec la commande utilitaire `nlcheck` de `indird`.
 
@@ -171,6 +172,16 @@ indéfiniment (jusqu'à un arrêt par SIGTERM)
   attendre par 'sleep' la durée `sleep` spécifiée dans la configuration
 l'activation par `systemd` de `indirdwake` rappelle un `indird` secondaire pour interrompre le 'sleep'
 ```
+
+## <a name="envv">Variables d'environnement</a>
+
+Le script `indird/indird` reconnait et utilise les variables d'environnement suivantes:
+
+- `INDIRD_CONFIG` permet d'utiliser un fichier global de configuration(s) autre que `/etc/indird.conf`
+- `INDIRD_CFGDIR` permet d'utiliser un répertoire de configuration(s) par flux autre que `/etc/indird.d/`
+- `INDIRD_NLOCAL` permet d'ignorer les vérifications locales du fichier de configuration (voir [ici](#nloc))
+
+Enfin une variable IndPfx est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des 3 variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
 
 ## <a name="cfgf">Fichier de configuration</a>
 
@@ -315,7 +326,7 @@ mkiconf examples/indird.yml profnt2 >profnt2.conf
 ```
 
 ### `ckiyaml`
-`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère pour chaque *host* un fichier de configuration temporaire dont chaque *\<tag>* est ensuite vérifié avec la commande `INDIRD_CONFIG=<config_temporaire> indird <tag> nlcheck`
+`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère pour chaque *host* un fichier de configuration temporaire dont chaque *\<tag>* est ensuite vérifié avec la commande `INDIRD_CONFIG=<config_temporaire> INDIRD_NLOCAL=y indird <tag> check`
 
 Exemple d'utilisation :
 ```
