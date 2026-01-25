@@ -181,7 +181,7 @@ Le script `indird/indird` reconnait et utilise les variables d'environnement sui
 - `INDIRD_CFGDIR` permet d'utiliser un répertoire de configuration(s) par flux autre que `/etc/indird.d/`
 - `INDIRD_NLOCAL` permet d'ignorer les vérifications locales du fichier de configuration (voir [ici](#nloc))
 
-Enfin une variable IndPfx est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des 3 variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
+Enfin une variable `IndPfx` est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des trois variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
 
 ## <a name="cfgf">Fichier de configuration</a>
 
