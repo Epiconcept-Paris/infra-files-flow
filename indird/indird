@@ -614,7 +614,12 @@ eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Prg.d}"		# Derive default cfgdir from $P
 eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 
 eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
-test -f "$CfgDir/.ok" && Use_lsof='n'
+if [ -f "$CfgDir/.ok" ]; then
+    Use_lsof='n'
+    LogInfo "FindWriter will use '.ok/' files"
+else
+    LogInfo "FindWriter will use the 'lsof' command"
+fi
 
 test "$1" || Usage
 Tag=$1
