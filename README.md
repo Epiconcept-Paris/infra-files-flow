@@ -18,7 +18,7 @@ Dans [github](https://github.com/Epiconcept-Paris/infra-files-flow), vous pouvez
 ## <a name="newf">Nouvelles fonctionnalités en 2025-2026</a>
 
 Ces nouvelles fonctionnalités ont été ajoutées à `indird` pour alléger la charge système dans la gestion d'un grand nombre de flux (plusieurs centaines).
-Elle se manifestent essentiellement par la prise en compte d'un répertoire `/etc/indird.d`, dans lequel chaque flux a son sous-répertoire qui va contenir des fichiers de configuration spécifiques au flux.
+Elles se manifestent essentiellement par la prise en compte d'un répertoire `/etc/indird.d`, dans lequel chaque flux a son sous-répertoire qui va contenir des fichiers de configuration spécifiques au flux.
 
 ### Gestion d'un fichier de configuration par flux
 
