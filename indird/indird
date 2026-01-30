@@ -605,20 +605,15 @@ SigUsr2()
 #   We need a tag as our first argument
 #   so we can load and check our config
 #
-command -v 'jq' >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
-if [ "$Use_lsof" = 'y' ]; then
-    command -v 'lsof' >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
-fi
-
 eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Prg.d}"		# Derive default cfgdir from $Prg
 eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 
 eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
-if [ -f "$CfgDir/.ok" ]; then
-    Use_lsof='n'
-    LogInfo "FindWriter will use '.ok/' files"
-else
-    LogInfo "FindWriter will use the 'lsof' command"
+test -f "$CfgDir/.ok" && { Use_lsof='n'; EoW="'.ok/' files"; } || EoW="the 'lsof' command"
+
+command -v 'jq' >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
+if [ "$Use_lsof" = 'y' ]; then
+    command -v 'lsof' >/dev/null || LogExit "cannot find the lsof utility" $ExUsage
 fi
 
 test "$1" || Usage
@@ -754,6 +749,7 @@ trap SigUsr1 USR1
 trap SigUsr2 USR2
 LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
+LogInfo "FindWriter will use $EoW"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
