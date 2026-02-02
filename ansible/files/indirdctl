@@ -1,48 +1,79 @@
 #!/bin/bash
 #todo extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
 #todo surveillance des logs, à définir
-#todo montrer les dossiers pour chaque instance
 
-list=$(cat /etc/indird.conf|jq '.|reduce path(.[]?) as $path (.; setpath($path; {}))' |grep -vEe '^({|})' |sed -e 's/[ ]*"//' -e 's/".*//')
+Cfg='/etc/indird.conf'
+Dir='/etc/indird.d'
+Cnf='config.json'
+tty >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
+
+Bold() { echo "$Bold$1$Norm"; }
+
+Split=$(echo $Dir/*/$Cnf)	# Gather 'Split' (per stream) config files
+[[ "$Split" = "$Dir/*/$Cnf" ]] && Split=
+
+# Split instances have precedence over the same in $Cfg (through jq's 'add')
+list=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted|join("\n")')
+[[ "$Dbg" ]] && { echo "$list"; exit 0; }
+
+[[ "$1" = 'split' ]] && {
+    Su='sudo'
+    [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL"
+}
+[[ "$1" = 'cache' ]] && {
+    case "$2" in
+	gen) Su='sudo'; [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL" ;;
+	del) Su='sudo' ;;
+    esac
+}
 
 case $1 in
-status) for i in $list; do systemctl status indird@$i; done ;;
-start) for i in $list; do echo $i; sudo systemctl start indird@$i; done ;;
-stop) for i in $list; do echo $i; sudo systemctl stop indird@$i; done ;;
-restart) for i in $list; do echo $i; sudo systemctl restart indird@$i; done ;;
-reload) for i in $list; do echo $i; sudo systemctl reload indird@$i; done ;;
-resetlog) for i in $list; do echo $i; sudo systemctl kill --signal=HUP indird@$i; done ;;
-ps) systemctl |grep 'indird@' ;;
-ls) if [ "$list" != "null" ]; then echo "$list"; fi ;;
-check) 
-	if [ "$list" != "null" ]; then
-		for servicetype in indird indirdwake; do
-			services=$(systemctl list-units --all | grep -v masked | grep $servicetype@)
-			for i in $list; do 
-				result=$(echo "$services" | grep "$servicetype@$i.service")
-				if [ -z "$result" ]; then echo "$servicetype@$i.service (absent)"; fi
-				if [[ "$result" =~ "failed" ]]; then echo "$servicetype@$i.service (failed) $result"
-				elif [[ "$result" =~ "dead" && $servicetype == "indird" ]]; then echo "$servicetype@$i.service (dead)"; fi
-			done
-                        IFS=$'\n'
-                        for i in $services; do
-                                service=$(echo $i |sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
-                                result=$(echo "$list" | grep "$service")
-                                if [ -z "$result" ]; then echo "$service (non déclaré)"; fi
-                        done
-		done | sort -u
+    status)	for i in $list; do systemctl status "indird@$i"; done ;;
+    start|stop|restart|reload)
+		for i in $list; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
+    resetlog)	for i in $list; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
+    split)	for i in $list; do test -f "$Dir/$i/$Cnf" || $Su indird "$i" split; done ;;
+    cache)	for i in $list; do $Su indird "$i" cache "$2"; done ;;
+    ps)		systemctl | grep 'indird@' ;;
+    ls)		[[ "$list" && "$list" != 'null' ]] && echo "$list" ;;
+    paths)
+	cat $Cfg $Split | jq -sr 'add|keys_unsorted[] as $k | "\($k)|\(.[$k] | .path)"' | column -s '|' -t | sed 's;/$;;'
+	;;
+    check)
+	if [[ "$list" && "$list" != 'null' ]]; then
+	    for srvtype in indird indirdwake; do
+		services=$(systemctl list-units --all | grep -v masked | grep $srvtype@)
+		for i in $list; do
+		    result=$(echo "$services" | grep "$srvtype@$i.service")
+		    test "$result" || echo "$srvtype@$i.service (absent)"
+		    if [[ "$result" =~ "failed" ]]; then
+			echo "$srvtype@$i.service (failed) $result"
+		    elif [[ "$result" =~ "dead" && $srvtype == "indird" ]]; then
+			echo "$srvtype@$i.service (dead)"
+		    fi
+		done
+		IFS=$'\n'
+		for i in $services; do
+		    service=$(echo $i | sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
+		    result=$(echo "$list" | grep "$service")
+		    test "$result" || echo "$service (non déclaré)"
+		done
+	    done | sort -u
 	fi
 	;;
-debug)
-	for instance in $list; do 
-		cmd=$(cat /etc/indird.conf| jq .$instance.actions.copy.cmd -r| sed 's/"\$i_FILE"/$FILE/g')
-		listvars=$(cat /etc/indird.conf| jq .$instance.env |jq '.|reduce path(.[]?) as $path (.; setpath($path; {}))' |grep -vEe '^({|})' |sed -e 's/[ ]*"//' -e 's/".*//' |xargs)
-		
-		echo -e "$instance\n - cmd: $cmd\n - vars: $listvars"
-		for var in $listvars; do value=$(cat /etc/indird.conf | jq .$instance.env.$var -r); cmd=$(echo $cmd|sed -e "s#\$i_${var}#$value#g"); done
-		echo " - cmd calculée: $cmd"
+    debug)
+	for instance in $list; do
+	    cfg=$(cat $Cfg $Split | jq -s "add|.$instance")
+	    cmd=$(jq -r '.actions.copy.cmd' <<<"$cfg" | sed 's/"\$i_FILE"/$FILE/g')
+	    vars=$(jq -r '.env|keys_unsorted|join(" ")' <<<"$cfg")
+	    Bold "$instance"; echo -e " - cmd: $cmd\n - vars: $vars"
+	    for var in $vars; do
+		value=$(jq -r ".env.$var" <<<"$cfg")
+		cmd=$(echo "$cmd" | sed -e "s#\$i_${var}#$value#g")
+	    done
+	    echo " - cmd calculée: $cmd"
 	done
 	;;
-*) 
-	echo "$0 status|ps|debug|start|stop|check"
+    *)
+	echo "Usage: $0 status|ps|check|debug|paths|start|stop|restart|reload|resetlog"
 esac
