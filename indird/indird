@@ -33,7 +33,6 @@ ExNotHost=5
 ExNoPath=6
 ExTagCfg=7
 ExNoCache=8
-ExDeprec=9
 
 #   We assume that no TTY means that we run as a systemd service
 tty >/dev/null && isTty=y
@@ -276,7 +275,7 @@ ParseConf()
     local JSON Path Key Val
 
     # Show progress only on Main call (no Path)
-    test "$2" || onTTY Bold "Parsing $Config " >&2
+    test "$2" || onTTY echo "Parsing $Config " >&2
 
     JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
     test "$2" && Path="$2."
@@ -303,7 +302,7 @@ ChkConf()
     # global Conf ChkMode Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
-    onTTY Bold "Checking $Config " >&2
+    onTTY echo "Checking $Config " >&2
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -675,7 +674,7 @@ case "$Cmd" in
 	    *)	Usage;;
 	esac
 	;;
-    'nlcheck')  LogExit "use '${IndPfx}NLOCAL=y $Prg $Tag check' instead" $ExDeprec ;;
+    'nlcheck')  NLocal='y'; NoCache='y'; Cmd='check';;
     '') ;;	# 2nd arg may be absent
     *)	Usage;;	# Reject unknown 2nd arg
 esac
