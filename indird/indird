@@ -182,7 +182,7 @@ Usage()
 {
     # global ExUsage
 
-    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | split | cache <sub-cmd> ]" 'crit'
+    LogMsg "Usage: $0 <dir-tag> [ wakeup | config | check | nlcheck | split | cache <sub-cmd> ]" 'crit'
     LogMsg "       where <sub-cmd> is [ gen | del | chk | prt ]" 'crit'
     exit ${1:-$ExUsage}
 }
@@ -216,7 +216,7 @@ GetConf()
     # global Conf Prg HasTag Host
     local err cnf line tags
 
-    onTTY Bold "Reading $1 " >&2
+    onTTY echo -n "Reading $1 " >&2
 
     err=$(mktemp)
     # Be really defensive (as we shall also need mktemp later)
@@ -275,7 +275,7 @@ ParseConf()
     local JSON Path Key Val
 
     # Show progress only on Main call (no Path)
-    test "$2" || onTTY echo "Parsing $Config " >&2
+    test "$2" || onTTY echo -n "Parsing $Config " >&2
 
     JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
     test "$2" && Path="$2."
@@ -302,7 +302,7 @@ ChkConf()
     # global Conf ChkMode Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
-    onTTY echo "Checking $Config " >&2
+    onTTY echo -n "Checking $Config " >&2
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -723,7 +723,7 @@ test "$FromCache" || {			# If NOT FromCache ...
 #   Handle check / split / cache utilities and exit
 #
 if [ "$Cmd" = 'check' ]; then
-    onTTY Bold "Config   $CfgTag OK\n"	# If TTY, onfirm success
+    onTTY Bold "Config   $CfgTag OK\n"	# If TTY, confirm success
     exit 0
 elif [ "$Cmd" = 'split' ]; then
     test -d "$TagDir" || mkdir -p "$TagDir"	# Make $TagDir if needed
