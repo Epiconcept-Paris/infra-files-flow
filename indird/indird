@@ -610,7 +610,17 @@ eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Prg.d}"		# Derive default cfgdir from $P
 eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $Prg
 
 eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
-test -f "$CfgDir/.ok" && { Use_lsof='n'; EoW="'.ok/' files"; } || EoW="the 'lsof' command"
+
+if [ -f "$CfgDir/.ok" ]; then
+    EoW="'.ok/' files"
+    Use_lsof='n'
+    if [ -s "$CfgDir/.ok" ]; then
+	wDelay=$(< "$CfgDir/.ok")
+	[[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || LogExit "contents of '$CfgDir/.ok' should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'" $ExCfgErr
+    fi
+else
+    EoW="the 'lsof' command"
+fi
 
 command -v 'jq' >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 if [ "$Use_lsof" = 'y' ]; then
