@@ -33,6 +33,9 @@ ExNotHost=5
 ExNoPath=6
 ExTagCfg=7
 ExNoCache=8
+ExNoAllCfg=9
+ExCfgEq=10
+ExCfgDif=11
 
 #   We assume that no TTY means that we run as a systemd service
 tty >/dev/null && isTty=y
@@ -123,12 +126,10 @@ Fold()
 # params <message> <logger-level>
 LogMsg()
 {
-    # global isTty Tag Logfile
-    if [ "$isTty" ]; then
-	Fold "$1" >&2
-	return
-    fi
-    Stamp "[$Tag] $1" >>$LogFile
+    # global isTty $isRoot Tag Logfile
+    test "$isTty" && { Fold "$1" >&2; return; }
+    test "$isRoot" && Stamp "[$Tag] $1" >>$LogFile
+
     # Should we use 'user' facility instead of 'daemon' ?
     test "$2" && logger -p daemon.$2 "$1"
 }
@@ -210,27 +211,27 @@ ConfErr()
 #
 #   Read configuration file for our instance (<tag>)
 #
-# params <config-file> <tag>
+# params <config-file> <tag> <no-tag-list>
 GetConf()
 {
-    # global Conf Prg HasTag Host
-    local err cnf line tags
+    # global Conf Prg Host
+    local nt err cnf line tags
 
-    onTTY echo -n "Reading $1 " >&2
+    test "$3" = 'noTags' && nt='y' || nt=''
+    test "$nt" || onTTY echo -n "Reading $1 " >&2
 
-    err=$(mktemp)
     # Be really defensive (as we shall also need mktemp later)
-    test -f "$err" || { EOL; LogExit "cannot create temp file $err ??" $ExCfgErr; }
+    err=$(mktemp -q) || { test "$nt" || EOL; LogExit "cannot create temporary file ??" $ExCfgErr; }
 
     # Full-line # comments are allowed, \n changed to ;
     if cnf=$(sed -e '/^[ 	]*#/d' -e 's/\\n/; /g' $1 | jq -c -e ".$2" 2>$err); then
-	EOL
+	test "$nt" || EOL
 	echo "$cnf"
 	rm $err
 	xc=$?
     else
 	xc=$ExCfgErr
-	EOL
+	test "$nt" || EOL
 	#   Log possible jq errors
 	if [ -s "$err" ]; then
 	    LogMsg "$Prg: $1 has errors:"
@@ -245,7 +246,7 @@ GetConf()
 	# if tag unknown, list known tags
 	tags=$(sed '/^[ 	]*#/d' $1 | jq -r 'keys|join(" ")')
 	nb=$(wc -w <<< "$tags")
-	if [ "$HasTag" ]; then
+	if [ "$1" = "$TagCfg" ]; then
 	    if [ "$nb" -eq 1 ]; then
 		LogExit "tag '$tags' in $1 should be '$2'!" $ExCfgErr
 	    else
@@ -255,8 +256,10 @@ GetConf()
 		    LogExit "structure of $1 is invalid" $ExCfgErr
 		fi
 	    fi
+	elif [ "$nt" ]; then
+	    exit $ExCfgErr
 	else
-	    LogExit "\"$2\" tag unknown in $1"
+	    LogExit "tag \"$2\" unknown in $1"
 	    LogMsg "Known tag$(plurl "$tags"): $tags" 'err'
 	    Usage $ExCfgErr
 	fi
@@ -655,7 +658,30 @@ fi
 case "$Cmd" in
     'config'|'check') NoCache='y';;
     'split')
-	test "$HasTag" && LogExit "file $Config already exists. Rename or delete it" $ExTagCfg
+	if [ "$HasTag" ]; then
+	    # If per-tag config already exists, try to comparge it with global config
+	    Cnf=$(GetConf $Config $Tag 'noTags' | jq .) || exit $?
+	    gCnf=''
+	    test -s "$AllCfg" && gCnf=$(GetConf $AllCfg $Tag 'noTags' | jq .)
+	    if [ "$gCnf" ]; then
+		if [ "$Cnf" = "$gCnf" ]; then
+		    LogNote "Config for tag \"$Tag\" already exists as a copy of global config"
+		    exit $ExCfgEq
+		else
+		    LogNote "Config for tag \"$Tag\" already exists and differs from global config"
+		    Color=''; Skip=0
+		    onTTY && { Color='--color=always '; Skip=$(echo -n "$Bold" | wc -c); }
+		    Tmp=$(mktemp -q) || LogExit "cannot create temporary file ??" $ExCfgErr
+		    echo "$gCnf" >"$Tmp"
+		    <<<"$Cnf" diff $Color-u "$Tmp" - | sed -r "s#^(.{$Skip})--- $Tmp\t#\1--- Global #; s#^(.{$Skip})\+\+\+ -\t#\1+++ PerTag #"
+		    rm "$Tmp"
+		    exit $ExCfgDif
+		fi
+	    else
+		LogNote "Config for tag \"$Tag\" already exists with no match in global config"
+		exit $ExNoAllCfg
+	    fi
+	fi
 	MustBeRoot
 	;;
     'cache')
