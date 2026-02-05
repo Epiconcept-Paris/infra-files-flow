@@ -356,7 +356,7 @@ ChkConf()
 	[[ "$val" =~ ^(fileglob|regexp)$ ]] || ConfErr "filetypes.$key.method has invalid value \"$val\""
 	# optional orderby has fixed values
 	val="${Conf["filetypes.$key.orderby"]}"
-	[[ "$val" =~ ^(mtime|alpha|)$ ]] || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
+	[[ "$val" =~ ^(mtime|alpha)$ ]] || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
     done
 
     # Check actions dict
