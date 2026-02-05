@@ -32,8 +32,9 @@ case $1 in
     start|stop|restart|reload)
 		for i in $list; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
     resetlog)	for i in $list; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
-    split)	for i in $list; do test -f "$Dir/$i/$Cnf" || $Su indird "$i" split; done ;;
+    split)	for i in $list; do $Su indird "$i" split; done ;;
     cache)	for i in $list; do $Su indird "$i" cache "$2"; done ;;
+    chk)	for i in $list; do indird "$i" check; done ;;
     ps)		systemctl | grep 'indird@' ;;
     ls)		[[ "$list" && "$list" != 'null' ]] && echo "$list" ;;
     paths)
