@@ -2,19 +2,116 @@
 #todo extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
 #todo surveillance des logs, à définir
 
-Cfg='/etc/indird.conf'
-Dir='/etc/indird.d'
-Cnf='config.json'
+Prg=$(basename "$0")
+BinDir=$(dirname "$0")
+Config='/etc/indird.conf'
+CfgDir='/etc/indird.d'
+ConfJS='config.json'
 tty >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
 
 Bold() { echo "$Bold$1$Norm"; }
 
-Split=$(echo $Dir/*/$Cnf)	# Gather 'Split' (per stream) config files
-[[ "$Split" = "$Dir/*/$Cnf" ]] && Split=
+Usage()
+{
+    echo "Usage: $Prg [ status | start | stop | restart | reload | resetlog ]"
+    echo "       $Prg [ ps | ls | paths | chk | cache | split | check | debug ]"
+    echo "       $Prg cache [ gen | del | chk | prt ]"
+}
+
+#   Split command
+Split()
+{
+    #global Cfg Prg Config Su
+    local list nb i new eql dif tag err
+
+    test "$Cfg" || { echo "$Prg: no split possible as $Config cannot be found" >&2; exit $ExNoAllCfg; }
+    list=$(jq -r 'keys[]' $Cfg) || exit $?
+    nb=$(wc -l <<<"$list")
+
+    new=0; eql=0; dif=0; tag=0; err=0
+    for i in $list; do
+	$Su "$BinDir/indird" "$i" split
+	rc=$?
+	case "$rc" in
+	    0)		((new++));((tag++));;
+	    $ExCfgEql)	((eql++));((tag++));;
+	    $ExCfgDif)	((dif++));;
+	    *)		((err++));;
+	esac
+    done
+    if [[ "$nb" -gt 0 && "$tag" = "$nb" ]]; then
+	echo "All $nb tags in $Config have an exact per-tag copy in $CfgDir" >&2
+    else
+	echo "Stats: new=$new eql=$eql new+eql=$tag dif=$dif err=$err" >&2
+    fi
+}
+
+#   Check command
+Check()
+{
+    #global List
+    local stype srvs res srv
+
+    test "$List" || return 0
+    test "$List" = 'null' && return
+    for stype in indird indirdwake; do
+	srvs=$(systemctl list-units --all | grep -v masked | grep $stype@)
+	for i in $List; do
+	    res=$(echo "$srvs" | grep "$stype@$i.service")
+	    test "$res" || echo "$stype@$i.service (absent)"
+	    if [[ "$res" =~ "failed" ]]; then
+		echo "$stype@$i.service (failed) $res"
+	    elif [[ "$res" =~ "dead" && $stype == "indird" ]]; then
+		echo "$stype@$i.service (dead)"
+	    fi
+	done
+	IFS=$'\n'
+	for i in $srvs; do
+	    srv=$(echo $i | sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
+	    res=$(echo "$List" | grep "$srv")
+	    test "$res" || echo "$srv (non déclaré)"
+	done
+    done | sort -u
+}
+
+#   Debug command
+Debug()
+{
+    #global List Cfg Split
+    local tag cfg cmd vars var val
+
+    for tag in $List; do
+	cfg=$(cat $Cfg $Split | jq -s "add|.$tag")
+	cmd=$(jq -r '.actions.copy.cmd' <<<"$cfg" | sed 's/"\$i_FILE"/$FILE/g')
+	vars=$(jq -r '.env|keys_unsorted|join(" ")' <<<"$cfg")
+	Bold "$tag"; echo -e " - cmd: $cmd\n - vars: $vars"
+	for var in $vars; do
+	    val=$(jq -r ".env.$var" <<<"$cfg")
+	    cmd=$(echo "$cmd" | sed -e "s#\$i_${var}#$val#g")
+	done
+	echo " - cmd calculée: $cmd"
+    done
+}
+
+#
+#   Main
+#
+#   Get exit codes from the indird script
+eval $(grep '^Ex' "$BinDir/indird")
+
+#   Global config file (may not exist)
+[[ -f "$Config" ]] && Cfg="$Config" || Cfg=''
+
+#   Per-tag (split) config files (may also not exist at all)
+Split=$(echo $CfgDir/*/$ConfJS)	# Gather 'Split' (per stream) config files
+[[ "$Split" = "$CfgDir/*/$ConfJS" ]] && Split=''
+
+#   Abort if no stream-config at all
+[[ "$Cfg" || "$Split" ]] || { echo "$Prg: no global or per-tag configuration" >&2; exit $ExCfgErr; }
 
 # Split instances have precedence over the same in $Cfg (through jq's 'add')
-list=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted|join("\n")')
-[[ "$Dbg" ]] && { echo "$list"; exit 0; }
+List=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted[]')
+[[ "$Dbg" ]] && { echo "$List"; exit 0; }
 
 [[ "$1" = 'split' ]] && {
     Su='sudo'
@@ -28,53 +125,19 @@ list=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted|join("\n")')
 }
 
 case $1 in
-    status)	for i in $list; do systemctl status "indird@$i"; done ;;
+    status)	for i in $List; do systemctl status "indird@$i"; done ;;
     start|stop|restart|reload)
-		for i in $list; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
-    resetlog)	for i in $list; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
-    split)	for i in $list; do $Su indird "$i" split; done ;;
-    cache)	for i in $list; do $Su indird "$i" cache "$2"; done ;;
-    chk)	for i in $list; do indird "$i" check; done ;;
+		for i in $List; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
+    resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
     ps)		systemctl | grep 'indird@' ;;
-    ls)		[[ "$list" && "$list" != 'null' ]] && echo "$list" ;;
-    paths)
-	cat $Cfg $Split | jq -sr 'add|keys_unsorted[] as $k | "\($k)|\(.[$k] | .path)"' | column -s '|' -t | sed 's;/$;;'
-	;;
-    check)
-	if [[ "$list" && "$list" != 'null' ]]; then
-	    for srvtype in indird indirdwake; do
-		services=$(systemctl list-units --all | grep -v masked | grep $srvtype@)
-		for i in $list; do
-		    result=$(echo "$services" | grep "$srvtype@$i.service")
-		    test "$result" || echo "$srvtype@$i.service (absent)"
-		    if [[ "$result" =~ "failed" ]]; then
-			echo "$srvtype@$i.service (failed) $result"
-		    elif [[ "$result" =~ "dead" && $srvtype == "indird" ]]; then
-			echo "$srvtype@$i.service (dead)"
-		    fi
-		done
-		IFS=$'\n'
-		for i in $services; do
-		    service=$(echo $i | sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
-		    result=$(echo "$list" | grep "$service")
-		    test "$result" || echo "$service (non déclaré)"
-		done
-	    done | sort -u
-	fi
-	;;
-    debug)
-	for instance in $list; do
-	    cfg=$(cat $Cfg $Split | jq -s "add|.$instance")
-	    cmd=$(jq -r '.actions.copy.cmd' <<<"$cfg" | sed 's/"\$i_FILE"/$FILE/g')
-	    vars=$(jq -r '.env|keys_unsorted|join(" ")' <<<"$cfg")
-	    Bold "$instance"; echo -e " - cmd: $cmd\n - vars: $vars"
-	    for var in $vars; do
-		value=$(jq -r ".env.$var" <<<"$cfg")
-		cmd=$(echo "$cmd" | sed -e "s#\$i_${var}#$value#g")
-	    done
-	    echo " - cmd calculée: $cmd"
-	done
-	;;
-    *)
-	echo "Usage: $0 status|ps|check|debug|paths|start|stop|restart|reload|resetlog"
+    ls)		[[ "$List" && "$List" != 'null' ]] && echo "$List" ;;
+    paths)	jqc='add|keys_unsorted[] as $k | "\($k)|\(.[$k] | .path)"'
+		cat $Cfg $Split | jq -sr "$jqc" | column -s '|' -t | sed 's;/$;;'
+		;;
+    chk)	for i in $List; do indird "$i" check; done ;;
+    cache)	for i in $List; do $Su indird "$i" cache "$2"; done ;;
+    split)	Split ;;
+    check)	Check ;;
+    debug)	Debug ;;
+    *)		Usage ;;
 esac
