@@ -5,17 +5,23 @@
 #	requires package jq, optionally lsof
 #
 # shellcheck disable=SC2086     # Double quote to prevent word splitting
-# shellcheck disable=SC2031	# Cmd was modified in a subshell
+# shellcheck disable=SC2031	# variable was modified in a subshell
 #
 test "$2" = 'wakeup' && trap '' HUP	# trap HUP as early as possible
 Prg=$(basename $0)
-IndPfx="$(tr '[a-z]' '[A-Z]' <<< "$Prg")_"	# Derive prefix from $Prg
+IndPfx="$(tr '[:lower:]' '[:upper:]' <<< "$Prg")_"	# Derive prefix from $Prg
 
-Use_lsof='y'	# 'y' to use lsof, else use $Conf['path']/.ok/<file>
+# Set Use_lsof to 'y' to use 'lsof' else use $Conf['path']/.ok/<file>
+Use_lsof='y'
 
-# IMPORTANT NOTE: keep wDelay with a decimal '.' (e.g. 5.0) so that other sleep
-#		  commands cannot be mistaken for sleep $wDelay by WakeupMain
-wDelay='0.2'	# Delay to sleep(1) if at least one file is open for Writing
+# Write-in-progress Delay to sleep(1) before re-scanning Conf['path']
+#   if at least one file is open for Writing
+wDelay='0.2'
+# IMPORTANT NOTE:
+#   keep wDelay with a decimal '.' (e.g. 5.0) so that other sleep
+#   commands cannot be mistaken for sleep $wDelay by WakeupMain
+#
+# Use_lsof & wDelay can be both set in /etc/indird.d/.ok (presence & num-content)
 
 LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
@@ -31,13 +37,12 @@ ExNotRoot=3
 ExCfgErr=4
 ExNotHost=5
 ExNoPath=6
-ExTagCfg=7
-ExNoCache=8
-ExNoAllCfg=9
-ExCfgEq=10
-ExCfgDif=11
+ExNoCache=7
+ExNoAllCfg=8
+ExCfgEql=9
+ExCfgDif=10
 
-#   We assume that no TTY means that we run as a systemd service
+#   We assume that stdin 'not a tty' means that we run as a systemd service
 tty >/dev/null && isTty=y
 test "$(id -u)" -eq 0 && isRoot=y
 if [ "$isTty" ]; then
@@ -69,7 +74,7 @@ Bold()
 {
     # global Bold Norm
 
-    printf "$Bold"; printf "$1"; printf "$Norm"
+    echo -n "$Bold"; printf "$1"; echo -n "$Norm"
 }
 
 # Join lines on stdin with separator $1
@@ -167,9 +172,9 @@ LogDbg()
     local debug
 
     debug=''
-    if [ -v Conf['path'] ]; then
+    if [ -v Conf['path'] ]; then	# Config has been loaded
 	debug="${Conf['debug']}"
-    elif [ -f "$Debug" ]; then
+    elif [ -f "$Debug" ]; then		# Per-tag debug file exists
 	debug='true'
     fi
     #	As LogMsg below has no 2nd argument, it will NOT call logger
@@ -316,7 +321,7 @@ ChkConf()
     [[ -d "${Conf['path']}" || "$NLocal" ]] || ConfErr "path \"${Conf['path']}\" does not exist" $ExNoPath
     # Make sure that ${Conf['sleep']} is numeric
     val="${Conf['sleep']}"
-    test "$(expr "$val" : '\([0-9]*\)')" = "$val" || ConfErr "required 'sleep' property must be numeric, not \"$val\""
+    [[ "$val" =~ ^[0-9]+$ ]] || ConfErr "required 'sleep' property must be numeric, not \"$val\""
     test "$val" -ge $MinSleep || ConfErr "required 'sleep' property must be at least ${MinSleep}s, not ${val}s"
 
     # Check optional config parameters
@@ -328,7 +333,7 @@ ChkConf()
 
     #	shell: if param exists it must be known from 'command -v'
     if [[ -v Conf['shell'] && -z "$NLocal" ]]; then
-	val=$(command -v "${Conf['shell']}") && Shell="$val" || ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath
+	if val=$(command -v "${Conf['shell']}"); then Shell="$val"; else ConfErr "shell \"${Conf['shell']}\" is not valid" $ExNoPath; fi
     fi
 
     #	debug: if param exists, it must have value 'true' or 'false'
@@ -355,8 +360,10 @@ ChkConf()
 	val="${Conf["filetypes.$key.method"]}"
 	[[ "$val" =~ ^(fileglob|regexp)$ ]] || ConfErr "filetypes.$key.method has invalid value \"$val\""
 	# optional orderby has fixed values
-	val="${Conf["filetypes.$key.orderby"]}"
-	[[ "$val" =~ ^(mtime|alpha)$ ]] || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
+	if [ -v Conf["filetypes.$key.orderby"] ]; then
+	    val="${Conf["filetypes.$key.orderby"]}"
+	    [[ "$val" =~ ^(mtime|alpha)$ ]] || ConfErr "filetypes.$key.orderby has invalid value \"$val\""
+	fi
     done
 
     # Check actions dict
@@ -364,7 +371,7 @@ ChkConf()
     do
 	# at least cmd is required, all others optional
 	test -v Conf["actions.$key.cmd"] || ConfErr "actions.$key has no 'cmd' property"
-	# check that optionnal chdir's directory exists
+	# check that optional chdir's directory exists
 	if [ -v Conf["actions.$key.chdir"] ]; then
 	    val="${Conf["actions.$key.chdir"]}"
 	    [[ -d "$val" || "$val" = 'null' ]] || ConfErr "actions.$key.chdir directory \"$val\" does not exist"
@@ -376,7 +383,7 @@ ChkConf()
     do
 	# at least cmd is required, all others optional
 	test -v Conf["ends.$key.cmd"] || ConfErr "ends.$key has no 'cmd' property"
-	# check that optionnal chdir's directory exists
+	# check that optional chdir's directory exists
 	if [ -v Conf["ends.$key.chdir"] ]; then
 	    val="${Conf["ends.$key.chdir"]}"
 	    [[ -d "$val" || "$val" = 'null' ]] || ConfErr "ends.$key.chdir directory \"$val\" does not exist"
@@ -574,7 +581,7 @@ GotSig()
     # global Signal SleepPID
     local SIG
 
-    SIG=$(tr '[a-z]' '[A-Z]' <<<$1)
+    SIG=$(tr '[:lower:]' '[:upper:]' <<<$1)
     LogNote "Received SIG$SIG"
     Signal=$1
     #	sleep was probably killed by our sig, but kill $SleepPID as a precaution
@@ -616,9 +623,12 @@ eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
 if [ -f "$CfgDir/.ok" ]; then
     EoW="'.ok/' files"
     Use_lsof='n'
-    if [ -s "$CfgDir/.ok" ]; then
-	wDelay=$(< "$CfgDir/.ok")
-	[[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || LogExit "contents of '$CfgDir/.ok' should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'" $ExCfgErr
+    Ok="$CfgDir/.ok"
+    if [ -s "$Ok" ]; then
+	wDelay=$(< "$Ok")
+	[[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || {
+	    LogExit "contents of '$Ok' should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'" $ExCfgErr
+	}
     fi
 else
     EoW="the 'lsof' command"
@@ -639,10 +649,12 @@ if [ -s "$TagCfg" ]; then
     Config="$TagCfg"
     CfgTag="$Config"		# For messages
     HasTag='y'			# Per-Tag config used
-else
+elif [ -s "$AllCfg" ]; then
     Config="$AllCfg"
     CfgTag="$Config for $Tag"	# For messages
     HasTag=			# All-Tag config used
+else
+    LogExit "cannot find $AllCfg or $TagCfg non-empty file" $ExCfgErr
 fi
 Cmd="$2"			# Optional command on tag
 
@@ -659,14 +671,14 @@ case "$Cmd" in
     'config'|'check') NoCache='y';;
     'split')
 	if [ "$HasTag" ]; then
-	    # If per-tag config already exists, try to comparge it with global config
+	    # If per-tag config already exists, try to compare it with global config
 	    Cnf=$(GetConf $Config $Tag 'noTags' | jq .) || exit $?
 	    gCnf=''
 	    test -s "$AllCfg" && gCnf=$(GetConf $AllCfg $Tag 'noTags' | jq .)
 	    if [ "$gCnf" ]; then
 		if [ "$Cnf" = "$gCnf" ]; then
 		    LogNote "Config for tag \"$Tag\" already exists as a copy of global config"
-		    exit $ExCfgEq
+		    exit $ExCfgEql
 		else
 		    LogNote "Config for tag \"$Tag\" already exists and differs from global config"
 		    Color=''; Skip=0
@@ -701,7 +713,7 @@ case "$Cmd" in
 	esac
 	;;
     'nlcheck')  NLocal='y'; NoCache='y'; Cmd='check';;
-    '') ;;	# 2nd arg may be absent
+    '') ;;	# 2nd arg may be absent (start service)
     *)	Usage;;	# Reject unknown 2nd arg
 esac
 
@@ -755,7 +767,7 @@ elif [ "$Cmd" = 'split' ]; then
     test -d "$TagDir" || mkdir -p "$TagDir"	# Make $TagDir if needed
     echo "{\"$Tag\":$Cnf}" | jq . >$TagCfg	# Save $TagCfg
     xc=$?
-    test "$xc" = '0' && LogInfo "Created $TagCfg"
+    test "$xc" -eq 0 && LogInfo "Created $TagCfg"
     exit $xc
 elif [ "$Cmd" = 'cache' ]; then
     #	'del' & 'prt' already exited
@@ -907,10 +919,7 @@ do
     #
     # Make sure with '/' below that we dereference a possible symlink
     Mod=$(mTime "${Conf['path']}/")
-    if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
-	LogDbg "WARNING: Mod='$Mod' !!"
-	Mod=$LastMod
-    fi
+    [[ "$Mod" =~ ^[0-9]+$ ]] || { LogDbg "WARNING: Mod='$Mod' !!"; Mod=$LastMod; }
     if [ $Mod -eq $LastMod ]; then
 	LogDbg "Mod = LastMod='$(hTime "$Mod")'"
     elif [ $Mod -gt $LastMod ]; then
@@ -933,24 +942,15 @@ do
 	    LogInfo "Checking ${Conf["filetypes.$ft.desc"]}"
 	    pat="${Conf["filetypes.$ft.pattern"]}"
 
+	    met='regex'
+	    ord='alpha'
+	    test -v Conf["filetypes.$ft.orderby"] && ord="${Conf["filetypes.$ft.orderby"]}"
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
-		if [ "${Conf["filetypes.$ft.orderby"]}" = 'mtime' ]; then
-		    Files=$(ls -tr $pat)
-		    ord='mtime'
-		else
-		    Files="$pat"		# alpha
-		    ord='alpha'
-		fi
 		met='fglob'
+		test "$ord" != 'mtime' && Files="$pat" || Files=$(ls -tr $pat)
 	    else	# regexp
-		if [ "${Conf["filetypes.$ft.orderby"]}" = 'mtime' ]; then
-		    Files=$(ls -tr | grep "$pat")
-		    ord='mtime'
-		else
-		    Files=$(ls | grep "$pat")	# alpha
-		    ord='alpha'
-		fi
-		met='regex'
+		test "$ord" = 'mtime' && opt=' -tr' || opt=''
+		Files=$(ls$opt | grep "$pat")
 	    fi
 
 	    #   Loop on matching files {
@@ -1081,7 +1081,7 @@ do
 			ThisEnv="$CondEnv"
 
 			# Optional end's chdir
-			Chdir=
+			ChDir=
 			[[ -v Conf["$end.chdir"] && "${Conf["$end.chdir"]}" != 'null' ]] && ChDir=" cd ${Conf["$end.chdir"]};"
 			# Optional end's env
 			for sfx in ${Conf["$end.env._keys"]}	# May not exist
@@ -1139,15 +1139,12 @@ do
 	done #	} Loop on all 'rules' members
 	LogInfo "Processed $NbP file(s), $NbS successfully"
 	LogDbg "NbW=$NbW"
-	# If files being written to, Wait 200ms and touch ${Conf['path']}
+	# If files being written to, Wait $wDelay and touch ${Conf['path']}
 	test $NbW -gt 0 && sleep $wDelay && touch "${Conf['path']}"
 
 	# Make sure with '/' below that we dereference a possible symlink
 	Mod=$(mTime "${Conf['path']}/")
-	if ! expr "$Mod" : '[0-9][0-9]*$' >/dev/null; then
-	    LogDbg "WARNING: Mod='$Mod' !!"
-	    Mod=$LastMod
-	fi
+	[[ "$Mod" =~ ^[0-9]+$ ]] || { LogDbg "WARNING: Mod='$Mod' !!"; Mod=$LastMod; }
 
 	test "$Signal" && break
     done #  } Loop until dir untouched
