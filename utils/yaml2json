@@ -48,36 +48,36 @@ def flatten_ordered_mapping(loader, node):
     merge = []
     index = 0
     while index < len(node.value):
-	key_node, value_node = node.value[index]
-	if key_node.tag == u'tag:yaml.org,2002:merge':
-	    del node.value[index]
-	    if isinstance(value_node, MappingNode):
-		flatten_ordered_mapping(loader, value_node)
-		merge.extend(value_node.value)
-	    elif isinstance(value_node, SequenceNode):
-		submerge = []
-		for subnode in value_node.value:
-		    if not isinstance(subnode, MappingNode):
-			raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping for merging, but found %s" % subnode.id, subnode.start_mark)
-		    flatten_ordered_mapping(loader, subnode)
-		    submerge.append(subnode.value)
-		submerge.reverse()
-		for value in submerge:
-		    merge.extend(value)
-	    else:
-		raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping or list of mappings for merging, but found %s" % value_node.id, value_node.start_mark)
+        key_node, value_node = node.value[index]
+        if key_node.tag == u'tag:yaml.org,2002:merge':
+            del node.value[index]
+            if isinstance(value_node, MappingNode):
+                flatten_ordered_mapping(loader, value_node)
+                merge.extend(value_node.value)
+            elif isinstance(value_node, SequenceNode):
+                submerge = []
+                for subnode in value_node.value:
+                    if not isinstance(subnode, MappingNode):
+                        raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping for merging, but found %s" % subnode.id, subnode.start_mark)
+                    flatten_ordered_mapping(loader, subnode)
+                    submerge.append(subnode.value)
+                submerge.reverse()
+                for value in submerge:
+                    merge.extend(value)
+            else:
+                raise ConstructorError("while constructing a mapping", node.start_mark, "expected a mapping or list of mappings for merging, but found %s" % value_node.id, value_node.start_mark)
 
-	elif key_node.tag == u'tag:yaml.org,2002:value':
-	    key_node.tag = u'tag:yaml.org,2002:str'
-	    index += 1
-	else:
-	    index += 1
+        elif key_node.tag == u'tag:yaml.org,2002:value':
+            key_node.tag = u'tag:yaml.org,2002:str'
+            index += 1
+        else:
+            index += 1
 
-	if merge:
-	    for val in merge:
-		node.value.insert(index, val)
-		index += 1
-	    merge = []
+        if merge:
+            for val in merge:
+                node.value.insert(index, val)
+                index += 1
+            merge = []
 
 def construct_ordered_mapping(loader, node, deep=False):
     if isinstance(node, MappingNode):
