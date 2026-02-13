@@ -279,7 +279,7 @@ GetConf()
 # params <JSON-obj> [ <obj-path> ]
 ParseConf()
 {
-    # global Conf
+    # global Config Conf
     local JSON Path Key Val
 
     # Show progress only on Main call (no Path)
@@ -639,7 +639,13 @@ TagDir="$CfgDir/$Tag"		# Per-Tag directory
 TagCfg="$TagDir/config.json"	# Per-Tag config file
 Cache="$TagDir/cache.sh"	# Per-Tag config-cache file
 Debug="$TagDir/debug"		# Per-Tag debug file (for WakeupMain)
-if [ -s "$TagCfg" ]; then
+if [ "$AllCfg" = '-' ]; then
+    [[ "$2" =~ ^(nl)?check$ ]] || LogExit "config from stdin is valid only for *check commands" $ExUsage
+    Cnf=$(cat)
+    Config='stdin'
+    CfgTag="config for $Tag"
+    HasTag=
+elif [ -s "$TagCfg" ]; then
     Config="$TagCfg"
     CfgTag="$Config"		# For messages
     HasTag='y'			# Per-Tag config used
@@ -662,6 +668,7 @@ fi
 
 #   Check arguments
 case "$Cmd" in
+    'nlcheck')  NLocal='y'; Cmd='check';&	# fall-through
     'config'|'check') NoCache='y';;
     'split')
 	if [ "$HasTag" ]; then
@@ -706,7 +713,6 @@ case "$Cmd" in
 	    *)	Usage;;
 	esac
 	;;
-    'nlcheck')  NLocal='y'; NoCache='y'; Cmd='check';;
     '') ;;	# 2nd arg may be absent (start service)
     *)	Usage;;	# Reject unknown 2nd arg
 esac
@@ -714,7 +720,7 @@ esac
 if [[ -z "$NoCache" && -s "$Cache" ]]; then
     if [[ "$SubCmd" =~ ^(chk|prt)$ ]]; then
 	FromCache='c'	# 'c' as sub-Commands
-    elif [ "$(mTime "$Cache")" -gt "$(mTime "$Config")" ]; then
+    elif [[ "$Cache" -nt "$Config" ]]; then
 	FromCache='t'	# 't' as newer-Time
     fi
 fi
@@ -723,7 +729,9 @@ if [ "$FromCache" ]; then
     source "$Cache" || LogExit "failed to source $Cache" $?
 else
     declare -A Conf
-    Cnf=$(GetConf $Config $Tag) || exit $?	# May exit on error ($Tag unknown, $Config access)
+    test "$Config" = 'stdin' || {
+	Cnf=$(GetConf $Config $Tag) || exit $?	# May exit on error ($Tag unknown, $Config access)
+    }
     ParseConf "$Cnf"				# Fills Conf and sets Host var
 fi
 #
