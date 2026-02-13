@@ -21,7 +21,7 @@ wDelay='0.2'
 #   keep wDelay with a decimal '.' (e.g. 5.0) so that other sleep
 #   commands cannot be mistaken for sleep $wDelay by WakeupMain
 #
-# Use_lsof & wDelay can be both set in /etc/indird.d/.ok (presence & num-content)
+# Use_lsof & wDelay can be both set in /etc/indird.d/.global.json
 
 LogFile=/var/log/$Prg.log
 RunDir=/run/$Prg
@@ -620,19 +620,13 @@ eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $P
 
 eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
 
-if [ -f "$CfgDir/.ok" ]; then
-    EoW="'.ok/' files"
-    Use_lsof='n'
-    Ok="$CfgDir/.ok"
-    if [ -s "$Ok" ]; then
-	wDelay=$(< "$Ok")
-	[[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || {
-	    LogExit "contents of '$Ok' should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'" $ExCfgErr
-	}
-    fi
-else
-    EoW="the 'lsof' command"
-fi
+Global="$CfgDir/.global.json"
+test -s "$Global" && eval "$(<"$Global" jq -r 'keys_unsorted[] as $k | "\($k)=\"\(.[$k])\""')"
+[[ "$Use_lsof" = 'y' ]] && EoW="the 'lsof' command" || EoW="'.ok/' files"
+[[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || {
+    test "$wDelay" && LogExit "wDelay's value should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'"
+    exit $ExCfgErr
+}
 
 command -v 'jq' >/dev/null || LogExit "cannot find the jq JSON processor" $ExUsage
 if [ "$Use_lsof" = 'y' ]; then
@@ -797,7 +791,7 @@ trap SigUsr1 USR1
 trap SigUsr2 USR2
 LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
-LogInfo "FindWriter will use $EoW"
+LogInfo "FindWriter will use $EoW, wDelay=$wDelay"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
 cd "${Conf['path']}"
 systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
