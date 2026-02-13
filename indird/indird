@@ -520,13 +520,14 @@ ChkConf()
 PrettyCache()
 {
     # global Cache
-    local val ll
+    local val lbl
 
-    val=$(sed 's/\([ (]\)\[\([a-z]\)/\1\n  [\2/g; s/ )$/\n)/' "$Cache" | sed 's/\._keys/.%keys/')
-    ll=$(($(wc -l <<< "$val") - 1))
-    sed -n 1p <<< "$val"
-    sed -n "2,${ll}p" <<< "$val" | LANG=C sort | sed 's/\.%keys/\._keys/'
-    sed -n '$p' <<< "$val"
+    # cut lines after declare -A Conf=( & after each value
+    val=$(sed -r 's/( \[[a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/' $Cache | sed 's/\._keys/.%keys/')
+    lbl=$(($(<<<"$val" wc -l) - 1))	# line before last
+    <<<"$val" sed -n 1p
+    <<<"$val" sed -n "2,${lbl}p" | LANG=C sort | sed 's/\.%keys/\._keys/'
+    <<<"$val" sed -n '$p'
 }
 
 #
