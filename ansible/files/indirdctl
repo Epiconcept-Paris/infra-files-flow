@@ -4,6 +4,7 @@
 
 Prg=$(basename "$0")
 BinDir=$(dirname "$0")
+Indird="$BinDir/indird"
 Config='/etc/indird.conf'
 CfgDir='/etc/indird.d'
 ConfJS='config.json'
@@ -30,7 +31,7 @@ Split()
 
     new=0; eql=0; dif=0; tag=0; err=0
     for i in $list; do
-	$Su "$BinDir/indird" "$i" split
+	$Su $Indird "$i" split
 	rc=$?
 	case "$rc" in
 	    0)		((new++));((tag++));;
@@ -96,8 +97,15 @@ Debug()
 #
 #   Main
 #
+test -x "$Indird" || {
+    Indird=$(command -v indird) || {
+	echo "$Prg: cannot find the '$Indird' script" >&2
+	exit 1
+    }
+}
+
 #   Get exit codes from the indird script
-eval $(grep '^Ex' "$BinDir/indird")
+eval $(grep '^Ex' "$Indird")
 
 #   Global config file (may not exist)
 [[ -f "$Config" ]] && Cfg="$Config" || Cfg=''
@@ -130,12 +138,13 @@ case $1 in
 		for i in $List; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
     resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
     ps)		systemctl | grep 'indird@' ;;
-    ls)		[[ "$List" && "$List" != 'null' ]] && echo "$List" ;;
-    paths)	jqc='add|keys_unsorted[] as $k | "\($k)|\(.[$k] | .path)"'
+    ls)		[[ "$List" && "$List" != 'null' ]] && {
+		echo "$List"; echo "$(<<<"$List" wc -l) instances" >&2; } ;;
+    paths)	jqc='add|keys_unsorted[] as $k | "\($k)|\(.[$k].path)"'
 		cat $Cfg $Split | jq -sr "$jqc" | column -s '|' -t | sed 's;/$;;'
 		;;
-    chk)	for i in $List; do indird "$i" check; done ;;
-    cache)	for i in $List; do $Su indird "$i" cache "$2"; done ;;
+    chk)	for i in $List; do $Indird "$i" check; done ;;
+    cache)	for i in $List; do $Su $Indird "$i" cache "$2"; done ;;
     split)	Split ;;
     check)	Check ;;
     debug)	Debug ;;
