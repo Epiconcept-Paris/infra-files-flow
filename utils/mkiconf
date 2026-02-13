@@ -1,8 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 #
 #	mkiconf - Output host's indird.conf from a global YAML file
 #
 Prg=`basename $0`
+
 # check args
 test "$2" || { echo "Usage: $Prg <yaml-file> <host>" >&2; exit 1; }
 yaml=$1
@@ -12,19 +13,16 @@ host=$2
 test -f "$yaml" || { echo "$Prg: cannot find YAML file \"$yaml\"" >&2; exit 2; }
 
 # check if $yaml is valid YAML
-conf=$(mktemp) || { echo "$Prg: cannot create temporary file" >&2; exit 1; }
-cleanup() { rm -f "$conf"; }
-trap cleanup 0 1 2
-yaml2json "$yaml" >"$conf" || exit 3
+conf=$(yaml2json "$yaml") || exit 3
 
 # check if $yaml has hosts
-keys=$(<"$conf" jq -e -r '.hosts|keys[]' 2>/dev/null) || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
+keys=$(<<<"$conf" jq -e -r '.hosts|keys[]' 2>/dev/null) || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
 
 # check if $host is host in $yaml
 echo "$keys" | grep -q "^$host\$" || { echo "$Prg: unknown host $host in $yaml" >&2; echo "Available hosts:" >&2; echo "$keys" | sed 's/^/    /' >&2; exit 5; }
 
 # all ok, output our config
-<"$conf" jq --indent 4 ".hosts.$host.confs" | unexpand --first-only | sed "1i\\
+<<<"$conf" jq --indent 4 ".hosts.$host.confs" | unexpand --first-only | sed "1i\\
 #\\
 #	indird.conf for $host\\
 #	generated from $yaml\\
