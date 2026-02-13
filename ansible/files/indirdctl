@@ -1,12 +1,16 @@
 #!/bin/bash
-#todo extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
-#todo surveillance des logs, à définir
-
+#
+#	indirdctl - Control indird services and configuration files
+#
+# ToDo: extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
+# ToDo: surveillance des logs, à définir
+#
 Prg=$(basename "$0")
 BinDir=$(dirname "$0")
-Indird="$BinDir/indird"
-Config='/etc/indird.conf'
-CfgDir='/etc/indird.d'
+Name="${Prg%ctl}"
+Indird="$BinDir/$Name"
+Config="/etc/$Name.conf"
+CfgDir="/etc/$Name.d"
 ConfJS='config.json'
 tty >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
 
@@ -14,9 +18,25 @@ Bold() { echo "$Bold$1$Norm"; }
 
 Usage()
 {
-    echo "Usage: $Prg [ status | start | stop | restart | reload | resetlog ]"
-    echo "       $Prg [ ps | ls | paths | chk | cache | split | check | debug ]"
+    echo "Usage: $Prg [ status | start | stop | restart | reload | resetlog | ps ]"
+    echo "       $Prg [ ls | paths | chk | nlchk | cache | split | check | debug ]"
     echo "       $Prg cache [ gen | del | chk | prt ]"
+}
+
+#   Paths command
+Paths()
+{
+    #global Cfg Split
+    local sep jqc res # Separator, jq-command, result
+
+    test "$1" && sep="$1" || sep='|'
+    jqc='add|keys_unsorted[] as $k | "\($k)'"$sep"'\(.[$k].path)"'
+    res=$(cat $Cfg $Split | jq -sr "$jqc" | sed 's;/$;;')
+    if [ "$1" ]; then
+	<<<"$res" cat
+    else
+	<<<"$res" column -s "$sep" -t
+    fi
 }
 
 #   Split command
@@ -25,13 +45,13 @@ Split()
     #global Cfg Prg Config Su
     local list nb i new eql dif tag err
 
-    test "$Cfg" || { echo "$Prg: no split possible as $Config cannot be found" >&2; exit $ExNoAllCfg; }
-    list=$(jq -r 'keys[]' $Cfg) || exit $?
+    test "$Cfg" || { echo "$Prg: no split possible as $Config cannot be found" >&2; exit "$ExNoAllCfg"; }
+    list=$(jq -r 'keys[]' "$Cfg") || exit $?
     nb=$(wc -l <<<"$list")
 
     new=0; eql=0; dif=0; tag=0; err=0
     for i in $list; do
-	$Su $Indird "$i" split
+	$Su "$Indird" "$i" split
 	rc=$?
 	case "$rc" in
 	    0)		((new++));((tag++));;
@@ -51,24 +71,24 @@ Split()
 Check()
 {
     #global List
-    local stype srvs res srv
+    local stype srvs i res srv
 
     test "$List" || return 0
     test "$List" = 'null' && return
-    for stype in indird indirdwake; do
+    for stype in "$Name" "${Name}wake"; do
 	srvs=$(systemctl list-units --all | grep -v masked | grep $stype@)
 	for i in $List; do
 	    res=$(echo "$srvs" | grep "$stype@$i.service")
 	    test "$res" || echo "$stype@$i.service (absent)"
 	    if [[ "$res" =~ "failed" ]]; then
 		echo "$stype@$i.service (failed) $res"
-	    elif [[ "$res" =~ "dead" && $stype == "indird" ]]; then
+	    elif [[ "$res" =~ "dead" && $stype == "$Name" ]]; then
 		echo "$stype@$i.service (dead)"
 	    fi
 	done
 	IFS=$'\n'
 	for i in $srvs; do
-	    srv=$(echo $i | sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
+	    srv=$(echo "$i" | sed 's/^..//' | awk '{print $1}' | sed -E -e 's/.*@//' -e 's/\.[a-z]+$//')
 	    res=$(echo "$List" | grep "$srv")
 	    test "$res" || echo "$srv (non déclaré)"
 	done
@@ -97,54 +117,61 @@ Debug()
 #
 #   Main
 #
+# Check that we have our main script "$Name"
 test -x "$Indird" || {
-    Indird=$(command -v indird) || {
-	echo "$Prg: cannot find the '$Indird' script" >&2
+    Indird=$(command -v "$Name") || {
+	echo "$Prg: cannot find the '$Name' script" >&2
 	exit 1
     }
 }
 
-#   Get exit codes from the indird script
+# Exit codes default values
+ExCfgErr=4
+ExNoAllCfg=8
+ExCfgEql=9
+ExCfgDif=10
+# Get exit codes from the $Name script
 eval $(grep '^Ex' "$Indird")
 
-#   Global config file (may not exist)
+# Global config file (may not exist)
 [[ -f "$Config" ]] && Cfg="$Config" || Cfg=''
 
-#   Per-tag (split) config files (may also not exist at all)
+# Per-tag (split) config files (may also not exist at all)
 Split=$(echo $CfgDir/*/$ConfJS)	# Gather 'Split' (per stream) config files
 [[ "$Split" = "$CfgDir/*/$ConfJS" ]] && Split=''
 
-#   Abort if no stream-config at all
-[[ "$Cfg" || "$Split" ]] || { echo "$Prg: no global or per-tag configuration" >&2; exit $ExCfgErr; }
+# Abort if no stream-config at all
+[[ "$Cfg" || "$Split" ]] || { echo "$Prg: no global or per-tag configuration" >&2; exit "$ExCfgErr"; }
 
 # Split instances have precedence over the same in $Cfg (through jq's 'add')
 List=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted[]')
 [[ "$Dbg" ]] && { echo "$List"; exit 0; }
 
-[[ "$1" = 'split' ]] && {
-    Su='sudo'
-    [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL"
-}
+# Prepare $Su for some commands
 [[ "$1" = 'cache' ]] && {
     case "$2" in
 	gen) Su='sudo'; [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL" ;;
 	del) Su='sudo' ;;
     esac
 }
+[[ "$1" = 'split' ]] && {
+    Su='sudo'
+    [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL"
+}
 
+#   Run command $1
 case $1 in
-    status)	for i in $List; do systemctl status "indird@$i"; done ;;
+    status)	for i in $List; do systemctl status "$Name@$i"; done ;;
     start|stop|restart|reload)
-		for i in $List; do Bold "$i"; sudo systemctl "$1" "indird@$i"; done ;;
-    resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "indird@$i"; done ;;
-    ps)		systemctl | grep 'indird@' ;;
+		for i in $List; do Bold "$i"; sudo systemctl "$1" "$Name@$i"; done ;;
+    resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "$Name@$i"; done ;;
+    ps)		systemctl | grep "$Name@" ;;
     ls)		[[ "$List" && "$List" != 'null' ]] && {
 		echo "$List"; echo "$(<<<"$List" wc -l) instances" >&2; } ;;
-    paths)	jqc='add|keys_unsorted[] as $k | "\($k)|\(.[$k].path)"'
-		cat $Cfg $Split | jq -sr "$jqc" | column -s '|' -t | sed 's;/$;;'
-		;;
-    chk)	for i in $List; do $Indird "$i" check; done ;;
-    cache)	for i in $List; do $Su $Indird "$i" cache "$2"; done ;;
+    chk)	for i in $List; do "$Indird" "$i" check; done ;;
+    nlchk)	for i in $List; do "$Indird" "$i" nlcheck; done ;;
+    cache)	for i in $List; do $Su "$Indird" "$i" cache "$2"; done ;;
+    paths)	shift; Paths "$@" ;;
     split)	Split ;;
     check)	Check ;;
     debug)	Debug ;;
