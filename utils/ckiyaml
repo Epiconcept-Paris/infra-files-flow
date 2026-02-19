@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #	ckiconf - Check a YAML file for indird config errors
 #
@@ -11,26 +11,22 @@ test "$1" && yaml="$1" || { echo "Usage: $Prg <yaml-file>" >&2; exit 1; }
 test -f "$yaml" || { echo "$Prg: cannot find YAML file \"$yaml\"" >&2; exit 2; }
 
 # check if $yaml is valid YAML
-yaml2json "$yaml" >/dev/null || exit 3
+conf=$(yaml2json "$yaml") || exit 3
 
-# check if $yaml is has hosts
-yaml2json "$yaml" | jq -e -r '.hosts|keys[]' >/dev/null 2>&1 || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
+# check if $conf has hosts
+keys=$(<<<"$conf" jq -e -r '.hosts|keys_unsorted[]' 2>/dev/null) || { echo "$Prg: no '.hosts' key in $yaml" >&2; exit 4; }
+keys=$(<<<"$keys" grep -v '^macros$')
 
-work=`mktemp -d`
-test -d "$work" || { echo "Cannot create '$work' working directory ??" >&2; exit 5; }
-real=`realpath $1`
-cd $work
-for host in `yaml2json $real | jq -r '.hosts|keys[]'`
+for host in $keys
 do
-    conf=$host.conf
     #	Extract $host config
-    yaml2json "$real" | jq ".hosts.$host.confs" >$conf
+    hcfg=$(<<<"$conf" jq ".hosts.$host.confs" | tee out/$host)
+    test "$hcfg" = 'null' && { echo "$Prg: cannot find '.hosts.$host.confs' in \"$yaml\"" >&2; continue; }
     #	Check each tag in $conf
-    echo "------- Checking $yaml host $host -------"
-    for tag in `jq -r '.|keys[]' <$conf`
+    echo "======= Checking host $host in $yaml ======="
+    for tag in $(<<<"$hcfg" jq -r 'keys_unsorted[]' | grep -v '^macros$')
     do
-	INDIRD_CONFIG=$conf INDIRD_NLOCAL=y indird $tag check	# use non-local check mode
+    echo "------- Checking $tag on host $host -------"
+	<<<"$hcfg" jq ".$tag" | INDIRD_CONFIG=- INDIRD_NLOCAL=y indird $tag check	# use non-local check mode
     done
-    rm -f $conf
 done
-rmdir $work
