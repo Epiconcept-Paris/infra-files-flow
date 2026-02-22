@@ -12,7 +12,7 @@ Indird="$BinDir/$Name"
 Config="/etc/$Name.conf"
 CfgDir="/etc/$Name.d"
 ConfJS='config.json'
-tty >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
+tty <&1 >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
 
 Bold() { echo "$Bold$1$Norm"; }
 
@@ -31,7 +31,7 @@ Paths()
 
     test "$1" && sep="$1" || sep='|'
     jqc='add|keys_unsorted[] as $k | "\($k)'"$sep"'\(.[$k].path)"'
-    res=$(cat $Cfg $Split | jq -sr "$jqc" | sed 's;/$;;')
+    res=$(cat $Cfg $Split | jq -sr "$jqc")
     if [ "$1" ]; then
 	<<<"$res" cat
     else
@@ -46,7 +46,7 @@ Split()
     local list nb i new eql dif tag err
 
     test "$Cfg" || { echo "$Prg: no split possible as $Config cannot be found" >&2; exit "$ExNoAllCfg"; }
-    list=$(jq -r 'keys[]' "$Cfg") || exit $?
+    list=$(jq -r 'keys_unsorted[]' "$Cfg") || exit $?
     nb=$(wc -l <<<"$list")
 
     new=0; eql=0; dif=0; tag=0; err=0
@@ -76,14 +76,15 @@ Check()
     test "$List" || return 0
     test "$List" = 'null' && return
     for stype in "$Name" "${Name}wake"; do
-	srvs=$(systemctl list-units --all | grep -v masked | grep $stype@)
+	srvs=$(systemctl list-units --all | grep -v masked | grep "$stype@")
 	for i in $List; do
-	    res=$(echo "$srvs" | grep "$stype@$i.service")
-	    test "$res" || echo "$stype@$i.service (absent)"
+	    srv="$stype@$i.service"
+	    res=$(echo "$srvs" | grep "$srv")
+	    test "$res" || echo "$srv (absent)"
 	    if [[ "$res" =~ "failed" ]]; then
-		echo "$stype@$i.service (failed) $res"
+		echo "$srv (failed) $res"
 	    elif [[ "$res" =~ "dead" && $stype == "$Name" ]]; then
-		echo "$stype@$i.service (dead)"
+		echo "$srv (dead)"
 	    fi
 	done
 	IFS=$'\n'
@@ -105,7 +106,8 @@ Debug()
 	cfg=$(cat $Cfg $Split | jq -s "add|.$tag")
 	cmd=$(jq -r '.actions.copy.cmd' <<<"$cfg" | sed 's/"\$i_FILE"/$FILE/g')
 	vars=$(jq -r '.env|keys_unsorted|join(" ")' <<<"$cfg")
-	Bold "$tag"; echo -e " - cmd: $cmd\n - vars: $vars"
+	Bold "$tag"
+	echo -e " - cmd: $cmd\n - vars: $vars"
 	for var in $vars; do
 	    val=$(jq -r ".env.$var" <<<"$cfg")
 	    cmd=$(echo "$cmd" | sed -e "s#\$i_${var}#$val#g")
@@ -167,7 +169,9 @@ case $1 in
     resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "$Name@$i"; done ;;
     ps)		systemctl | grep "$Name@" ;;
     ls)		[[ "$List" && "$List" != 'null' ]] && {
-		echo "$List"; echo "$(<<<"$List" wc -l) instances" >&2; } ;;
+		    echo "$List"
+		    echo "$(<<<"$List" wc -l) instances" >&2
+		} ;;
     chk)	for i in $List; do "$Indird" "$i" check; done ;;
     nlchk)	for i in $List; do "$Indird" "$i" nlcheck; done ;;
     cache)	for i in $List; do $Su "$Indird" "$i" cache "$2"; done ;;
@@ -175,5 +179,5 @@ case $1 in
     split)	Split ;;
     check)	Check ;;
     debug)	Debug ;;
-    *)		Usage ;;
+    *)		test "$1" = 'nlcheck' && echo "Did you mean: $Prg nlchk ?">&2; Usage ;;
 esac
