@@ -274,31 +274,26 @@ GetConf()
 }
 
 #
-#   Recursively parse JSON config data into Conf bash array
+#   Parse JSON config data into Conf bash array
 #
-# params <JSON-obj> [ <obj-path> ]
+# params <JSON-obj>
 ParseConf()
 {
     # global Config Conf
-    local JSON Path Key Val
 
-    # Show progress only on Main call (no Path)
-    test "$2" || onTTY echo -n "Parsing $Config " >&2
-
-    JSON=$(jq -r 'to_entries|.[]|(.key|tostring)+" "+(.value|tostring)' <<< "$1")
-    test "$2" && Path="$2."
-
-    while read -r Key Val
-    do
-        if jq -e '.|iterables' >/dev/null 2>&1 <<< "$Val"; then
-	    test "$Path$Key" = 'macros' && continue	# Skip this yaml kludge
-            Conf["$Path$Key._keys"]=$(jq -r 'keys|map(tostring)|join(" ")' <<< "$Val")
-            ParseConf "$Val" "$Path$Key"
-        else
-            Conf["$Path$Key"]="$Val"
-        fi
-    done <<< "$JSON"
-    test "$2" || EOL
+    onTTY echo -n "Parsing $Config " >&2
+    source <(
+	echo "Conf=("
+	(
+	    # Many thanks to TDE <t.delamare@epiconcept.fr> for his expertise in jq
+	    # output values
+	    <<< "$1" jq -cr 'tostream | select(length == 2) | "  [\(first | join("."))]=\(last | @sh)"'
+	    # output keys
+	    <<< "$1" jq -cr '. as $i | path(.. | iterables) as $p | $i | [ $p, (getpath($p) | keys)] | "  [\(first|join(".")+"._keys")]=\(last | join(" ") | @sh)"' | sed '/\[\._keys]=/d'
+	)
+	echo ")"
+    )
+    EOL
 }
 
 #
@@ -517,13 +512,17 @@ ChkConf()
     EOL
 }
 
+#   Pretty print cache in "$1"
 PrettyCache()
 {
-    # global Cache
-    local val lbl
+    local beg val lbl
 
-    # cut lines after declare -A Conf=( & after each value
-    val=$(sed -r 's/( \[[a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/' $Cache | sed 's/\._keys/.%keys/')
+    # Minimal check
+    beg='declare -A Conf='
+    [[ "$1" =~ ^$beg ]] || { echo "$Prg: cache data does not start with '$beg'" >&2; exit $ExCfgErr; }
+
+    # Cut lines after each value, after initial =([ and before final )
+    val=$(<<<"$1" sed -r 's/( \[[a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/' | sed 's/\._keys/.%keys/')
     lbl=$(($(<<<"$val" wc -l) - 1))	# line before last
     <<<"$val" sed -n 1p
     <<<"$val" sed -n "2,${lbl}p" | LANG=C sort | sed 's/\.%keys/\._keys/'
@@ -635,10 +634,13 @@ if [ "$Use_lsof" = 'y' ]; then
 fi
 
 test "$1" || Usage
+# Special case: pretty-print cache-like stdin
+[[ "$1" = '-' && "$2" = 'cache' && "$3" = 'prt' ]] && { PrettyCache "$(cat)"; exit 0; }
+
 Tag=$1
 TagDir="$CfgDir/$Tag"		# Per-Tag directory
 TagCfg="$TagDir/config.json"	# Per-Tag config file
-Cache="$TagDir/cache.sh"	# Per-Tag config-cache file
+Cache="$TagDir/cache.bash"	# Per-Tag config-cache file
 Debug="$TagDir/debug"		# Per-Tag debug file (for WakeupMain)
 if [ "$AllCfg" = '-' ]; then
     [[ "$2" =~ ^(nl)?check$ ]] || LogExit "config from stdin is valid only for *check commands" $ExUsage
@@ -708,7 +710,7 @@ case "$Cmd" in
 		    ;;
 	    'chk')  ;;
 	    'prt')  test -s "$Cache" || LogExit "file '$Cache' does not (yet) exist" $ExNoCache
-		    PrettyCache
+		    PrettyCache "$(<"$Cache")"
 		    exit 0
 		    ;;
 	    *)	Usage;;
@@ -733,7 +735,7 @@ else
     test "$Config" = 'stdin' || {
 	Cnf=$(GetConf $Config $Tag) || exit $?	# May exit on error ($Tag unknown, $Config access)
     }
-    ParseConf "$Cnf"				# Fills Conf and sets Host var
+    ParseConf "$Cnf"				# Fills Conf
 fi
 #
 #   Handle config utility: output config paths without checks
