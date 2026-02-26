@@ -2,6 +2,60 @@
 
 # playbook dédié au déploiement progressif de la solution sur satcom1 (ou tout autre suivant)
 
+- hosts: localhost
+  connection: local
+  tags: ['local', 'reconf', 'always']
+  gather_facts: true
+
+  tasks:
+    - name: test des binaires nécessaires
+      command: "which {{ item }}"
+      changed_when: false
+      failed_when: installed.rc not in [0]
+      register: installed
+      with_items: 
+        - jq
+        - yaml2json
+
+    - name: test des chemins nécessaires
+      stat:
+        path: "{{ item }}"
+      with_items: 
+        - "{{ path_repo_infra_data_misc }}"
+        - "{{ path_repo_base }}"
+      register: path_exists
+
+    - name: assertion sur les chemins nécessaires
+      assert: 
+        that: "{{ item.stat.exists }}"
+        fail_msg: "{{ item.item }} manquant"
+        quiet: yes
+      with_items: "{{ path_exists.results }}"
+
+    - file:
+        path: "{{ tmpconffile }}"
+        state: directory
+
+    - name: extraction configuration
+      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
+      changed_when: False
+      with_items: 
+        - procom1
+        - profntd1
+        - profnte1
+        - prefnt2
+        - profntj1
+        - profntr1
+        - profnts1
+        - procom3
+      register: out
+    #- debug: var=out
+      
+    - name: copy procom1 conf for procom3 (prepare transition)
+      shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}{procom3,satcom1}"
+
+
+
 - hosts: satcom1
   gather_facts: True
 
