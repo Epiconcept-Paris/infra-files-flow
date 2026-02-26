@@ -51,9 +51,13 @@
       register: out
     #- debug: var=out
       
-    - name: copy procom1 conf for procom3 (prepare transition)
-      shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}{procom3,satcom1}"
-
+    - name: copy procom1 conf for procom3 and satcom1 (prepare transition)
+      copy: 
+        src: "{{tmpconffile}}procom1"
+        dest: "{{tmpconffile}}{{item}}"
+      loop:
+        - "procom3"
+        - "satcom1"
 
 
 - hosts: satcom1
