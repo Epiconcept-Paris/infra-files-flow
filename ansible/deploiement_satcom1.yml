@@ -76,14 +76,6 @@
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
-    # - name: dépot bash-static
-    #   tags: ['install', 'satcom1']
-    #   copy:
-    #     src: files/bash-static
-    #     dest: /bin/bash-static
-    #     mode: 0755
-    #   become: true
-
     - name: dépot script indird
       tags: ['install', 'satcom1']
       copy: 
@@ -138,19 +130,19 @@
         - 'indirdwake@.path'
       become: True
 
-    - name: setup service indird
-      tags: ['install', 'satcom1']
-      service:
-        name: indird@{}
-        enabled: False
-        state: stopped
-      become: True
+    # - name: setup service indird
+    #   tags: ['install', 'satcom1']
+    #   service:
+    #     name: indird@{}
+    #     enabled: False
+    #     state: stopped
+    #   become: True
 
-    - name: lister les services
-      tags: ['reconf', 'install', 'satcom1']
-      shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
-      register: services
-      changed_when: False
+    # - name: lister les services
+    #   tags: ['reconf', 'install', 'satcom1']
+    #   shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
+    #   register: services
+    #   changed_when: False
 
     - name: mode reload
       tags: ['reconf']
