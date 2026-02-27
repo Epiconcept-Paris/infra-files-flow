@@ -20,7 +20,7 @@ keys=$(<<<"$keys" grep -v '^macros$')
 for host in $keys
 do
     #	Extract $host config
-    hcfg=$(<<<"$conf" jq ".hosts.$host.confs" | tee out/$host)
+    hcfg=$(<<<"$conf" jq ".hosts.$host.confs")
     test "$hcfg" = 'null' && { echo "$Prg: cannot find '.hosts.$host.confs' in \"$yaml\"" >&2; continue; }
     #	Check each tag in $conf
     echo "======= Checking host $host in $yaml ======="
