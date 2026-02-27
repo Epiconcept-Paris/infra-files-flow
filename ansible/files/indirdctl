@@ -31,7 +31,7 @@ Paths()
 
     test "$1" && sep="$1" || sep='|'
     jqc='add|keys_unsorted[] as $k | "\($k)'"$sep"'\(.[$k].path)"'
-    res=$(cat $Cfg $Split | jq -sr "$jqc")
+    res=$(cat $Cfg $Split | sed '/^#/d' | jq -sr "$jqc")
     if [ "$1" ]; then
 	<<<"$res" cat
     else
@@ -46,7 +46,7 @@ Split()
     local list nb i new eql dif tag err
 
     test "$Cfg" || { echo "$Prg: no split possible as $Config cannot be found" >&2; exit "$ExNoAllCfg"; }
-    list=$(jq -r 'keys_unsorted[]' "$Cfg") || exit $?
+    list=$(sed '/^#/d' "$Cfg" | jq -r 'keys_unsorted[]') || exit $?
     nb=$(wc -l <<<"$list")
 
     new=0; eql=0; dif=0; tag=0; err=0
@@ -103,7 +103,7 @@ Debug()
     local tag cfg cmd vars var val
 
     for tag in $List; do
-	cfg=$(cat $Cfg $Split | jq -s "add|.$tag")
+	cfg=$(cat $Cfg $Split | sed '/^#/d' | jq -s "add|.$tag")
 	cmd=$(jq -r '.actions.copy.cmd' <<<"$cfg" | sed 's/"\$i_FILE"/$FILE/g')
 	vars=$(jq -r '.env|keys_unsorted|join(" ")' <<<"$cfg")
 	Bold "$tag"
@@ -146,7 +146,7 @@ Split=$(echo $CfgDir/*/$ConfJS)	# Gather 'Split' (per stream) config files
 [[ "$Cfg" || "$Split" ]] || { echo "$Prg: no global or per-tag configuration" >&2; exit "$ExCfgErr"; }
 
 # Split instances have precedence over the same in $Cfg (through jq's 'add')
-List=$(cat $Cfg $Split | jq -sr 'add|keys_unsorted[]')
+List=$(cat $Cfg $Split | sed '/^#/d' | jq -sr 'add|keys_unsorted[]')
 [[ "$Dbg" ]] && { echo "$List"; exit 0; }
 
 # Prepare $Su for some commands
