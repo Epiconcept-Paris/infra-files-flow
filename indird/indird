@@ -2,8 +2,9 @@
 #
 #	indird - Watch a directory for incoming files
 #
-#	requires package jq, optionally lsof
+# requires bash-static (5.x) or symlink to bash, package jq, optionally lsof
 #
+# shellcheck disable=SC2016     # Expressions don't expand in single quotes
 # shellcheck disable=SC2086     # Double quote to prevent word splitting
 # shellcheck disable=SC2031	# variable was modified in a subshell
 #
@@ -43,9 +44,9 @@ ExCfgEql=9
 ExCfgDif=10
 
 #   We assume that stdin 'not a tty' means that we run as a systemd service
-tty >/dev/null && isTty=y
+tty >/dev/null && isTTY=y
 test "$(id -u)" -eq 0 && isRoot=y
-if [ "$isTty" ]; then
+if [ "$isTTY" ]; then
     Bold=$(tput bold)	# for headers
     Norm=$(tput sgr0)	# header end
 else
@@ -57,9 +58,9 @@ fi
 #
 onTTY()
 {
-    # global isTty
+    # global isTTY
 
-    test "$isTty" || return
+    test "$isTTY" || return
     "$@"
 }
 
@@ -131,8 +132,9 @@ Fold()
 # params <message> <logger-level>
 LogMsg()
 {
-    # global isTty $isRoot Tag Logfile
-    test "$isTty" && { Fold "$1" >&2; return; }
+    # global isTTY $isRoot Tag Logfile
+
+    test "$isTTY" && { Fold "$1" >&2; return; }
     test "$isRoot" && Stamp "[$Tag] $1" >>$LogFile
 
     # Should we use 'user' facility instead of 'daemon' ?
@@ -143,6 +145,7 @@ LogMsg()
 LogExit()
 {
     # global Prg
+
     LogMsg "$Prg: $1" 'err'
     test "$2" && exit $2
 }
@@ -196,7 +199,7 @@ Usage()
 # params <message> [ <exit-code> ]
 ConfErr()
 {
-    # global ChkMode ExCfgErr FromCache Cache CfgTag
+    # global ChkMode ExCfgErr FromCache Cache CfgLbl
     local xc cfg
 
     #	If an exit code is specified, the error is about a value
@@ -209,8 +212,21 @@ ConfErr()
 	xc=$ExCfgErr
     fi
     EOL
-    test "$FromCache" && cfg="$Cache" || cfg="$CfgTag"
+    test "$FromCache" && cfg="$Cache" || cfg="$CfgLbl"
     LogExit "in $cfg, $1" $xc
+}
+
+#   Output Config label for "$1"
+ConfLbl()
+{
+    #global Tag
+
+    case "$1" in
+	'stdin')	echo "config for $Tag" ;;
+	"$TagCfg")	echo "$TagCfg" ;;
+	"$AllCfg")	echo "$AllCfg for $Tag" ;;
+	*)		echo "unknown config" ;;
+    esac
 }
 
 #
@@ -223,7 +239,7 @@ GetConf()
     local nt err cnf line tags
 
     test "$3" = 'noTags' && nt='y' || nt=''
-    test "$nt" || onTTY echo -n "Reading $1 " >&2
+    test "$nt" || onTTY echo -n "${Bold}Reading $(ConfLbl "$1")$Norm " >&2
 
     # Be really defensive (as we shall also need mktemp later)
     err=$(mktemp -q) || { test "$nt" || EOL; LogExit "cannot create temporary file ??" $ExCfgErr; }
@@ -280,18 +296,33 @@ GetConf()
 ParseConf()
 {
     # global Config Conf
+    local inpar scals sfmt kpath input kvals kfmt
 
-    onTTY echo -n "Parsing $Config " >&2
+    onTTY echo -n "Parsing $CfgLbl " >&2
+
+    #
+    # The jq code below transforms JSON into bash-array assignments in 3 steps:
+    #
+    #	- we gather our input in an array of streams after discarding '.macros'
+    inpar='[del(.macros) | tostream]'			# Array of inputs
+
+    #	- a 1st filter will then output all the scalar values at their path
+    scals='.[] | select(length == 2)'			# Scalars
+    sfmt='  [\(first | join("."))]=\(last | @sh)'	# Scalar bash format
+
+    #	- a 2nd filter will gather the key pathss for each input-tree's level
+    kpath='. as $a | [ .[] | .[0] | .[0:length-1] ] | unique | .[] | . as $p'	# Key paths
+    input='fromstream($a | .[])'						# Raw input
+    kvals='[ $p, (getpath($p) | keys_unsorted) ]'				# Key (paths &) values
+    kfmt='  [\(first | . += [ "_keys" ] | join("."))]=\(last | join(" ") | @sh)' # Key bash format
+    #
+    # Many thanks to TDE <t.delamare@epiconcept.fr> for his expertise in jq
+    #
+
     source <(
-	echo "Conf=("
-	(
-	    # Many thanks to TDE <t.delamare@epiconcept.fr> for his expertise in jq
-	    # output values
-	    <<< "$1" jq -cr 'tostream | select(length == 2) | "  [\(first | join("."))]=\(last | @sh)"'
-	    # output keys
-	    <<< "$1" jq -cr '. as $i | path(.. | iterables) as $p | $i | [ $p, (getpath($p) | keys)] | "  [\(first|join(".")+"._keys")]=\(last | join(" ") | @sh)"' | sed '/\[\._keys]=/d'
-	)
-	echo ")"
+	echo 'Conf=('
+	<<<"$1" jq -cr "$inpar | ($scals | \"$sfmt\"), ($kpath | $input | $kvals | \"$kfmt\")"
+	echo ')'
     )
     EOL
 }
@@ -305,7 +336,7 @@ ChkConf()
     # global Conf ChkMode Tag Prg Shell EnvPfx CmdEnv
     local key val prop idx jdx step sub path link sfx
 
-    onTTY echo -n "Checking $Config " >&2
+    onTTY echo -n "Checking $CfgLbl " >&2
 
     # Check for required config parameters
     for key in 'path' 'sleep'
@@ -512,20 +543,43 @@ ChkConf()
     EOL
 }
 
+#   Recursively pretty-print cache values in "$1" with path "$2"
+PrettyVals()
+{
+    local idx keys key path
+
+    [ "$2" ] && idx="$2._keys" || idx="_keys"
+
+    eval "$(<<<"$1" sed -nr "s/^  \[$idx]=(.*)$/keys=\1/p")"
+    if [ "$keys" ]; then
+	printf '  [%s]="%s"\n' "$idx" "$keys"
+	for key in $keys; do
+	    test "$2" && path="$2.$key" || path="$key"
+	    PrettyVals "$(<<<"$1" grep "^  \[$path")" "$path"
+	done
+    elif [ "$2" ]; then
+	<<<"$1" cat
+    fi
+}
+
 #   Pretty print cache in "$1"
 PrettyCache()
 {
-    local beg val lbl
+    local beg val nbl
 
     # Minimal check
     beg='declare -A Conf='
     [[ "$1" =~ ^$beg ]] || { echo "$Prg: cache data does not start with '$beg'" >&2; exit $ExCfgErr; }
 
-    # Cut lines after each value, after initial =([ and before final )
-    val=$(<<<"$1" sed -r 's/( \[[a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/' | sed 's/\._keys/.%keys/')
-    lbl=$(($(<<<"$val" wc -l) - 1))	# line before last
-    <<<"$val" sed -n 1p
-    <<<"$val" sed -n "2,${lbl}p" | LANG=C sort | sed 's/\.%keys/\._keys/'
+    val="$1"
+    nbl=$(<<<"$1" wc -l)
+    if [[ "$nbl" -eq 1 ]]; then
+	val=$(<<<"$1" sed -r 's/( \[[_a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/')
+	nbl=$(<<<"$val" wc -l)
+    fi
+    ((nbl--))
+    <<<"$val" sed -n '1p'
+    PrettyVals "$(<<<"$val" sed -n "2,${nbl}p")"
     <<<"$val" sed -n '$p'
 }
 
@@ -621,7 +675,7 @@ eval "AllCfg=\${${IndPfx}CONFIG:-/etc/\$Prg.conf}"	# Derive default file from $P
 eval "NLocal=\${${IndPfx}NLOCAL}"	# For non-local checks
 
 Global="$CfgDir/.global.json"
-test -s "$Global" && eval "$(<"$Global" jq -r 'keys_unsorted[] as $k | "\($k)=\"\(.[$k])\""')"
+test -s "$Global" && eval "$(<"$Global" jq -r 'keys[] as $k | "\($k)=\"\(.[$k])\""')"
 [[ "$Use_lsof" = 'y' ]] && EoW="the 'lsof' command" || EoW="'.ok/' files"
 [[ "$wDelay" =~ ^[0-9]+\.[0-9]+$ ]] || {
     test "$wDelay" && LogExit "wDelay's value should be like '^[0-9]+\.[0-9]+\$', not '$wDelay'"
@@ -636,6 +690,7 @@ fi
 test "$1" || Usage
 # Special case: pretty-print cache-like stdin
 [[ "$1" = '-' && "$2" = 'cache' && "$3" = 'prt' ]] && { PrettyCache "$(cat)"; exit 0; }
+CfgDirWritable=''; [[ -w "$CfgDir" || -w "$(dirname "$CfgDir")" ]] && CfgDirWritable='y'
 
 Tag=$1
 TagDir="$CfgDir/$Tag"		# Per-Tag directory
@@ -646,19 +701,18 @@ if [ "$AllCfg" = '-' ]; then
     [[ "$2" =~ ^(nl)?check$ ]] || LogExit "config from stdin is valid only for *check commands" $ExUsage
     Cnf=$(cat)
     Config='stdin'
-    CfgTag="config for $Tag"
     HasTag=
 elif [ -s "$TagCfg" ]; then
     Config="$TagCfg"
-    CfgTag="$Config"		# For messages
     HasTag='y'			# Per-Tag config used
 elif [ -s "$AllCfg" ]; then
     Config="$AllCfg"
-    CfgTag="$Config for $Tag"	# For messages
-    HasTag=			# All-Tag config used
+    HasTag=			# All-Tags config used
 else
     LogExit "cannot find $AllCfg or $TagCfg non-empty file" $ExCfgErr
 fi
+CfgLbl=$(ConfLbl "$Config")	# For messages
+
 Cmd="$2"			# Optional command on tag
 
 #
@@ -697,14 +751,16 @@ case "$Cmd" in
 		LogNote "Config for tag \"$Tag\" already exists with no match in global config"
 		exit $ExNoAllCfg
 	    fi
+	else
+	    NoCache='y'
 	fi
-	MustBeRoot
+	test "$CfgDirWritable" || MustBeRoot
 	;;
     'cache')
 	SubCmd="$3"
 	case "$SubCmd" in
-	    'gen')  MustBeRoot; rm -f "$Cache" ;;
-	    'del')  MustBeRoot
+	    'gen')  test "$CfgDirWritable" || MustBeRoot; rm -f "$Cache" ;;
+	    'del')  test "$CfgDirWritable" || MustBeRoot
 		    rm "$Cache" 2>/dev/null && onTTY Bold "Removed '$Cache'\n"
 		    exit 0
 		    ;;
@@ -741,7 +797,7 @@ fi
 #   Handle config utility: output config paths without checks
 #
 if [ "$Cmd" = 'config' ]; then
-    test "$isTty" || LogExit "command '$Cmd' is for command-line only" $ExSyntax
+    test "$isTTY" || LogExit "command '$Cmd' is for command-line only" $ExSyntax
     ConfigPaths
     exit 0
 fi
@@ -754,7 +810,7 @@ CmdEnv=
 ChkConf $RunDir
 #echo "CmdEnv=[$CmdEnv]"; exit 0
 test "$FromCache" || {			# If NOT FromCache ...
-    if [ "$isRoot" ]; then
+    if [[ "$CfgDirWritable" || "$isRoot" ]]; then
 	test -d "$TagDir" || mkdir -p "$TagDir"
 	test -f "$Cache" && Verb='Updated' || Verb='Created'
 	declare -p Conf >"$Cache"	# create or refrech cache
@@ -766,7 +822,7 @@ test "$FromCache" || {			# If NOT FromCache ...
 #   Handle check / split / cache utilities and exit
 #
 if [ "$Cmd" = 'check' ]; then
-    onTTY Bold "Config   $CfgTag OK\n"	# If TTY, confirm success
+    onTTY Bold "Config   $CfgLbl OK\n"	# If TTY, confirm success
     exit 0
 elif [ "$Cmd" = 'split' ]; then
     test -d "$TagDir" || mkdir -p "$TagDir"	# Make $TagDir if needed
