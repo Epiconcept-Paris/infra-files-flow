@@ -27,6 +27,6 @@ do
     for tag in $(<<<"$hcfg" jq -r 'keys_unsorted[]' | grep -v '^macros$')
     do
     echo "------- Checking $tag on host $host -------"
-	<<<"$hcfg" jq ".$tag" | INDIRD_CONFIG=- INDIRD_NLOCAL=y indird $tag check	# use non-local check mode
+	<<<"$hcfg" jq ".$tag" | INDIRD_CONFIG=- indird $tag nlcheck	# non-local checks only
     done
 done
