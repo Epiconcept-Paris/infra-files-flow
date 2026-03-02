@@ -2,15 +2,17 @@
 #
 #	indirdctl - Control indird services and configuration files
 #
-# ToDo: extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
-# ToDo: surveillance des logs, à définir
+# Legacy Todos (to be implemented and/or removed)
+# - extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
+# - surveillance des logs, à définir
 #
 Prg=$(basename "$0")
 BinDir=$(dirname "$0")
 Name="${Prg%ctl}"
 Indird="$BinDir/$Name"
-Config="/etc/$Name.conf"
-CfgDir="/etc/$Name.d"
+IndPfx="$(tr '[:lower:]' '[:upper:]' <<< "$Name")_"	# Derive prefix from $Name
+eval "Config=\${${IndPfx}CONFIG:-/etc/\$Name.conf}"	# Derive default file from $IndPfx/$Name
+eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Name.d}"	# Derive default cfgdir from $IndPfx/$Name
 ConfJS='config.json'
 tty <&1 >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
 
@@ -149,17 +151,20 @@ Split=$(echo $CfgDir/*/$ConfJS)	# Gather 'Split' (per stream) config files
 List=$(cat $Cfg $Split | sed '/^#/d' | jq -sr 'add|keys_unsorted[]')
 [[ "$Dbg" ]] && { echo "$List"; exit 0; }
 
-# Prepare $Su for some commands
-[[ "$1" = 'cache' ]] && {
-    case "$2" in
-	gen) Su='sudo'; [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL" ;;
-	del) Su='sudo' ;;
-    esac
+#   Warn about systemctl ignoring $INDIRD_CONFIG and $INDIRD_CFGDIR
+[[ "$1" =~ ^(start|stop|restart|reload|resetlog)$ ]] && {
+    msg="%s: ${Bold}NOTE that the '%s' variable will NOT be forwarded to systemctl$Norm\n"
+    [[ "$INDIRD_CONFIG" ]] && printf "$msg" "$Prg" 'INDIRD_CONFIG' >&2
+    [[ "$INDIRD_CFGDIR" ]] && printf "$msg" "$Prg" 'INDIRD_CFGDIR' >&2
 }
-[[ "$1" = 'split' ]] && {
-    Su='sudo'
-    [[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL"
-}
+
+# Prepare $Su for commands that need to write in $CfgDir
+if [[ "$1" = 'cache' && "$2" =~ ^(gen|del)$ ]] || [[ "$1" = 'split' ]]; then
+    [[ -w "$CfgDir" || -w "$(dirname "$CfgDir")" ]] || {
+	Su='sudo'
+	[[ "$INDIRD_NLOCAL" ]] && Su="$Su --preserve-env=INDIRD_NLOCAL"
+    }
+fi
 
 #   Run command $1
 case $1 in
@@ -179,5 +184,5 @@ case $1 in
     split)	Split ;;
     check)	Check ;;
     debug)	Debug ;;
-    *)		test "$1" = 'nlcheck' && echo "Did you mean: $Prg nlchk ?">&2; Usage ;;
+    *)		test "$1" = 'nlcheck' && echo "Did you mean: $Prg nlchk ?" >&2; Usage ;;
 esac
