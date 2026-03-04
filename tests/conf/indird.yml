@@ -1,0 +1,171 @@
+---
+hosts:
+  cty1:
+    confs:
+      loki:
+        path: /home/cdt/files-flow/tests/data/recv/loki
+        sleep: 60
+        shell: bash
+        debug: false
+
+        env_prefix: i_
+        env: &dirs
+          topdir: /home/cdt/files-flow/tests
+          globdir: data/glob
+          donedir: data/done
+          faildir: data/fail
+
+        filetypes: &ftypes
+          md:
+            desc: Markdown files
+            method: fileglob
+            pattern: '*.md'
+            orderby: mtime
+          pdf:
+            desc: PDF files
+            method: regexp
+            pattern: '.*\.pdf$'
+
+        actions: &acts
+          chkpdf:
+            desc: Check for PDF
+            cmd: "[[ \"$(file \\\"$i_FILE\\\")\" =~ PDF document ]]"
+          chkmd:
+            desc: Check for Markdown
+            cmd: "[[ \"$(sed -n 1p \\\"$i_FILE\\\")\" =~ ^#\  ]]"
+          copy:
+            desc: Copy file to global input dir
+            cmd: cp -p "$i_FILE" "$i_topdir/$i_globdir"
+
+        ends: &ends
+          done:
+            desc: Move file to done dir
+            cmd: mv "$i_FILE" "$i_topdir/$i_donedir"
+          fail:
+            desc: Move file to fail dir
+            cmd: mv "$i_FILE" "$i_topdir/$i_faildir"
+
+        logs: &logs
+          debug:
+            desc: log to file
+            type: file
+            args:
+              path: $i_topdir/logs/$i_CONF.log
+
+          default:
+            desc: log to syslog
+            type: syslog
+            args:
+              facility: user
+              level: err
+
+        conds: &conds
+           ok: test $i_CODE -eq 0
+           ko: test $i_CODE -ne 0
+
+        macros:
+          - &pdf
+            action: copy
+            ends:
+              - { cond: ok, end: done }
+              - { cond: ko, end: fail }
+            logs:
+              - debug
+          - &md
+            action: copy
+            ends:
+              - { cond: ok, end: done }
+              - { cond: ko, end: fail }
+            logs:
+              - debug
+
+        rules:
+          pdf:
+            - desc: loki PDF instance
+              <<: *pdf
+          md:
+            - desc: loki Markdown instance
+              <<: *md
+
+      odin:
+        path: /home/cdt/files-flow/tests/data/recv/odin
+        sleep: 60
+        shell: bash
+
+        env_prefix: i_
+        env:
+          <<: *dirs
+        filetypes:
+          <<: *ftypes
+        actions:
+          <<: *acts
+        ends:
+          <<: *ends
+        logs:
+          <<: *logs
+        conds:
+          <<: *conds
+        rules:
+          pdf:
+            - desc: odin PDF instance
+              <<: *pdf
+          md:
+            - desc: odin Markdown instance
+              <<: *md
+
+      rind:
+        path: /home/cdt/files-flow/tests/data/recv/rind
+        sleep: 60
+        shell: bash
+        debug: true
+
+        env_prefix: i_
+        env:
+          <<: *dirs
+
+        filetypes:
+          <<: *ftypes
+        actions:
+          <<: *acts
+        ends:
+          <<: *ends
+        logs:
+          <<: *logs
+        conds:
+          <<: *conds
+        rules:
+          pdf:
+            - desc: rind PDF instance
+              <<: *pdf
+          md:
+            - desc: rind Markdown instance
+              <<: *md
+
+      vali:
+        env_prefix: i_
+        env:
+          <<: *dirs
+
+        path: /home/cdt/files-flow/tests/data/recv/vali
+        sleep: 60
+        shell: bash
+
+        filetypes:
+          <<: *ftypes
+        actions:
+          <<: *acts
+        ends:
+          <<: *ends
+        logs:
+          <<: *logs
+        conds:
+          <<: *conds
+        rules:
+          pdf:
+            - desc: vali PDF instance
+              <<: *pdf
+          md:
+            - desc: vali Markdown instance
+              <<: *md
+
+# vim: et sw=2
