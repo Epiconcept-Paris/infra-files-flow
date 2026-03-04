@@ -543,44 +543,65 @@ ChkConf()
     EOL
 }
 
-#   Recursively pretty-print cache values in "$1" with path "$2"
-PrettyVals()
+#   Output all Conf paths in $2 (or top) separated by $1 (or space)
+ConfPaths()
 {
-    local idx keys key path
+    #global Conf
+    local sep idx key path
 
-    [ "$2" ] && idx="$2._keys" || idx="_keys"
-
-    eval "$(<<<"$1" sed -nr "s/^  \[$idx]=(.*)$/keys=\1/p")"
-    if [ "$keys" ]; then
-	printf '  [%s]="%s"\n' "$idx" "$keys"
-	for key in $keys; do
+    test "$2" && { sep="${1- }"; idx="$2._keys"; } || { sep=''; idx="_keys"; }
+    if [ -v Conf["$idx"] ]; then
+	echo -n "$sep$idx"
+	for key in ${Conf[$idx]}; do
 	    test "$2" && path="$2.$key" || path="$key"
-	    PrettyVals "$(<<<"$1" grep "^  \[$path")" "$path"
+	    ConfPaths "${1- }" "$path"
 	done
     elif [ "$2" ]; then
-	<<<"$1" cat
+	echo -n "$sep$2"
     fi
+}
+
+#
+#   Output all JSON paths declared in the config file
+#   (NOTE that these 'paths' are conceptually unrelated to ${Conf['path']})
+#
+ConfigPaths()
+{
+    # global Conf
+    local key
+
+    for key in $(ConfPaths)
+    do
+	echo "$key='${Conf[$key]}'"
+    done
 }
 
 #   Pretty print cache in "$1"
 PrettyCache()
 {
-    local beg val nbl
+    local beg val paths
 
     # Minimal check
     beg='declare -A Conf='
     [[ "$1" =~ ^$beg ]] || { echo "$Prg: cache data does not start with '$beg'" >&2; exit $ExCfgErr; }
 
     val="$1"
-    nbl=$(<<<"$1" wc -l)
-    if [[ "$nbl" -eq 1 ]]; then
-	val=$(<<<"$1" sed -r 's/( \[[_a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/')
-	nbl=$(<<<"$val" wc -l)
-    fi
-    ((nbl--))
-    <<<"$val" sed -n '1p'
-    PrettyVals "$(<<<"$val" sed -n "2,${nbl}p")"
-    <<<"$val" sed -n '$p'
+    # We source "$1" in a local variable, to not alter the global one
+    source <(<<<"$val" sed '1s/^declare /local /')
+    paths=$(ConfPaths '|')
+    mapfile -n2 <<<"$val"
+    [[ "${#MAPFILE[@]}" -gt 1 ]] || {
+	val=$(<<<"$val" sed -r 's/( \[[_a-z])/\n \1/g; s/=\(\[/=(\n  [/; s/" \)$/"\n)/')
+    }
+    # We use awk below to be sure to keep the valid bash-escaped values
+    echo "$beg("
+    <<<"$val" sed -nr "s/^  \[([^]]+)]=(.*)$/\1|\2/p" | awk -F'|' -f <(cat <<-\EOF
+	BEGIN { split(ARGV[1],p); ARGC = 1 }
+	{ a[$1] = $2 }
+	END { for (i in p) { printf("  [%s]=%s\n", p[i], a[p[i]]) } }
+EOF
+    ) "$paths"
+    echo ")"
 }
 
 #
@@ -605,21 +626,6 @@ WakeupMain()
     else
 	LogWarn "Instance $1 is not running ?"
     fi
-}
-
-#
-#   Output all JSON paths declared in the config file
-#   (NOTE that these 'paths' are conceptually unrelated to ${Conf['path']})
-#
-ConfigPaths()
-{
-    # global Conf
-    local key
-
-    for key in "${!Conf[@]}"
-    do
-	echo "$key=\"${Conf[$key]}\""
-    done | sort
 }
 
 #   Ensure that we are root
