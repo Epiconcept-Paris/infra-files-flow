@@ -127,7 +127,7 @@ Mais la commande `check` n'est pas la seule à effectuer une verification locale
 Le script `bash` "`indird`" gère un flux de fichiers entrants, déposés dans un unique répertoire d'arrivée.  
 Les fichiers peuvent être de différents types et les actions effectuées sur ces fichiers peuvent varier selon le type, l'ensemble étant paramétrable dans un fichier de configuration au format JSON, sans qu'il soit nécessaire de modifier le script. Le fichier de configuration peut être extrait d'un fichier de configuration au format YAML, éventuellement plus global (plusieurs *hosts*).  
 Le script `indird` fonctionne comme un *service* `indird` de `systemd` (`man systemd.service`), donc en tant que *daemon*, en utilisant la possibilité de `systemd` de gérer plusieurs **instances** d'un même service, ce qui peut permettre dans un même système de gérer avec `indird` plusieurs répertoires d'arrivée. La configuration de ces instances peut être regroupée dans un même fichier de configuration global au système, chaque instance étant accessible par un **tag** (étiquette).  
-En l'absence d'arrivée de fichiers, le script `indird` attend par une commande `sleep` de durée paramètrable, cependant qu'une fonction spéciale de `systemd` (`man systemd.path`), paramétrée comme `indirdwake`, surveille toute modification du répertoire d'arrivée. Lorsque celle-ci se produit, `systemd` rappelle par la commande `indird <tag> wakeup` un `indird` secondaire qui `kill` s'il y a lieu le `sleep` en cours du `indird` principal, relançant ainsi la boucle de traitement des fichiers.
+En l'absence d'arrivée de fichiers, le script `indird` attend par une commande `sleep` de durée paramètrable, cependant qu'une fonction spéciale de `systemd` (`man systemd.path`), paramétrée comme `indirdwake`, surveille toute modification du répertoire d'arrivée. Lorsque celle-ci se produit, `systemd` rappelle par la commande `indird <flux> wakeup` un `indird` secondaire qui `kill` s'il y a lieu le `sleep` en cours du `indird` principal, relançant ainsi la boucle de traitement des fichiers.
 
 ## <a name="deps">Utilitaire prérequis</a>
 Le script `indird` utilise l'utilitaire `jq`, qui est disponible dans les paquets Linux Debian standards.
@@ -153,37 +153,37 @@ Les utilitaires `mkiconf` et `ckiyaml` dépendent de l'utilitaire `yaml2json`, q
 
 Après modification du fichier `/etc/indird.conf`, il faut lancer :
 ```console
-# systemctl enable indird@<tag>.service
-# systemctl enable indirdwake@<tag>.path
+# systemctl enable indird@<flux>.service
+# systemctl enable indirdwake@<flux>.path
 
-# systemctl start indird@<tag>.service
+# systemctl start indird@<flux>.service
 ```
-dans lequel *\<tag>* est le nom de la section du fichier de configuration à utiliser (voir ci-dessous), qui sert d'instance à `systemd`. Exemples :
+dans lequel *\<flux>* est le nom de la section du fichier de configuration à utiliser (voir ci-dessous), qui sert d'instance à `systemd`. Exemples :
 ```console
 # systemctl start indird@sspdamoc
 # systemctl start indird@sspnice
 ```
-Les *\<tag>* `sspdamoc` et `sspnice` sont donc à la fois des instances de `indird@` pour `systemd.service` et `systemd.path` et des *\<tag>* pour `indird`, correspondant chacun à la gestion d'un répertoire.
+Les *\<flux>* `sspdamoc` et `sspnice` sont donc à la fois des instances de `indird@` pour `systemd.service` et `systemd.path` et des *\<flux>* pour `indird`, correspondant chacun à la gestion d'un répertoire.
 
 Pour arrêter / désinstaller :
 
 ```console
-# systemctl stop indird@<tag>.service
+# systemctl stop indird@<flux>.service
 
-# systemctl disable indirdwake@<tag>.path
-# systemctl disable indird@<tag>.service
+# systemctl disable indirdwake@<flux>.path
+# systemctl disable indird@<flux>.service
 
 ```
 Pour obtenir le status :
 ```console
-# systemctl status indird@<tag>
-# systemctl status indirdwake@<tag>.path
+# systemctl status indird@<flux>
+# systemctl status indirdwake@<flux>.path
 ```
 Le rechargement de la configuration `indird.conf` (après modifications) est géré :
 ```console
-# systemctl reload indird@<tag>
+# systemctl reload indird@<flux>
 ```
-NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par `indird`.
+NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<flux>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par `indird`.
 
 Le fichier de log interne de `indird` est pour l'instant `/var/log/indird.log` et des liens symboliques de fonctionnement son créés dans le répertoire `/run/indird` (créé par le script si nécessaire). Le scipt `indird` crée également des fichiers temporaires dans `/tmp`. Ces trois chemins sont déterminés par les variables globales `LogFile`, `RunDir` et `TmpDir` au début du script.
 
@@ -231,7 +231,7 @@ INDIRD_CONFIG=indird.conf indird sspdamoc check
 Si un fichier `/etc/indird.d/<flux>/config.json` est présent et non-vide, il aura priorité sur `/etc/indird.conf`. Pour rappel, il contient un object JSON avec un unique membre de 1er niveau portant le nom du flux.
 
 ### <a name="cfgs">Structure du fichier de configuration</a>
-Le fichier de configuration de `indird` est au format JSON. Au niveau principal, les membres de l'objet racine (anonyme) sont les différentes instances (au moins une) spécifiés dans le fichier par leur **\<tag>**. Chaque membre **\<tag>** est à son tour un objet JSON avec un certain nombre de membres obligatoires [o] et facultatifs [f] selon la liste suivante:
+Le fichier de configuration de `indird` est au format JSON. Au niveau principal, les membres de l'objet racine (anonyme) sont les différentes instances (au moins une) spécifiés dans le fichier par leur **\<flux>**. Chaque membre **\<flux>** est à son tour un objet JSON avec un certain nombre de membres obligatoires [o] et facultatifs [f] selon la liste suivante:
 
 * `path` [o] - Le chemin absolu du répertoire à surveiller. Son existence est vérifiée au lancement de `indird`, sinon *abort*
 * `sleep` {o] - Le délai d'attente quand `path` ne reçoit pas de fichier. La valeur doit bien sur être numérique et d'au moins 5 (secondes) (variable `MinSleep` dans le script), sinon *abort*
@@ -242,7 +242,7 @@ Le fichier de configuration de `indird` est au format JSON. Au niveau principal,
 * `env_prefix` [f] - Le préfixe des variables d'environnement qui seront disponibles dans les commandes de `actions`, `ends` et `conds` (voir ci-dessous) et pour le `path` des `logs` de type `file` (voir `logs` ci dessous). Si non spécifié, il vaut `INDIRD_`
 * `env` [f] - Un objet global dont chaque membre indique un suffixe de variable d'environnement et la valeur de ce suffixe. Le script `indird` ajoute automatiquement à cet objet les variables suivantes:
   - `${env_prefix}HOST` - le nom `hostname` du système
-  - `${env_prefix}CONF` - le **\<tag>** spécifié
+  - `${env_prefix}CONF` - le **\<flux>** spécifié
   - `${env_prefix}PATH` - la valeur de `path`
   - `${env_prefix}FILE` - le nom du fichier en cours de traitement
   - `${env_prefix}CODE` - la code de retour de l'`action` (voir ci-dessous) après son exécution)
@@ -292,7 +292,7 @@ timeout 30 rsync -e "ssh -i $i_PATH/.ssh/rsync -l $i_user" "$i_FILE" $i_front:
 Si la commande `cmd` de `actions` d'une étape (step) échoue, les étapes suivantes ne seront pas exécutées.
 
 Pour l'instant, seul le résultat de la commande est loggé par `logs` (global et `rules`) avec le texte fixe suivant : "$Tag $act for $file returned $Ret" dans lequel les variables internes suivantes sont affectées par `indird` :
-  - `$Tag` est l'instance (*\<tag>*) de `indird`, par exemple `sspdamoc`
+  - `$Tag` est l'instance (*\<flux>*) de `indird`, par exemple `sspdamoc`
   - `$act` est le chemin de config de l'action en cours, par exemple `actions.copy`
   - `$file` est le nom du fichier en cours
   - `$Ret` est le résultat de `$act` : `success` ou par exemple `failure (exit=3)`
@@ -327,10 +327,10 @@ sudo npm install -g yamljs
 
 ### Commandes utilitaires du script `indird`
 `indird` dispose d'options destinées à être utilisées en ligne de commande après le **tag** (nom du flux) :
-  - `config` - cette option affiche sans vérification la configuration pour un `<tag>` donné, sous une forme analogue à celle des *MIB SNMP* (par exemple : `filetypes.hl7.method="fileglob"`)
+  - `config` - cette option affiche sans vérification la configuration pour un `<flux>` donné, sous une forme analogue à celle des *MIB SNMP* (par exemple : `filetypes.hl7.method="fileglob"`)
   - `check` - cette option vérifie la cohérence de la configuration entre ses différents objets, ainsi que l'existence ou la conformité des éléments *externes* à cette configuration : les chemins (`path`, `shell`) et le `host`
-  - `split` - cette option génère le fichier `/etc/indird.d/<tag>/config.json` qui doit préalablement ne pas exister
-  - `cache` - cette option gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<tag>/config.json`, respectivement avec les sous-commandes :
+  - `split` - cette option génère le fichier `/etc/indird.d/<flux>/config.json` qui doit préalablement ne pas exister
+  - `cache` - cette option gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<flux>/config.json`, respectivement avec les sous-commandes :
     - `gen` pour la génération
     - `del` pour la suppression
     - `chk` pour la vérification
@@ -364,7 +364,7 @@ mkiconf examples/indird.yml profnt2 >profnt2.conf
 ```
 
 ### `ckiyaml`
-`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère pour chaque *host* un fichier de configuration temporaire dont chaque *\<tag>* est ensuite vérifié avec la commande `INDIRD_CONFIG=<config_temporaire> INDIRD_NLOCAL=y indird <tag> check`
+`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère pour chaque *host* un fichier de configuration temporaire dont chaque *\<flux>* est ensuite vérifié avec la commande `INDIRD_CONFIG=<config_temporaire> INDIRD_NLOCAL=y indird <flux> check`
 
 Exemple d'utilisation :
 ```
