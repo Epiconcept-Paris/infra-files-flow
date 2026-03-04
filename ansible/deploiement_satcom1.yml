@@ -1,5 +1,7 @@
 ---
 
+# playbook dédié au déploiement progressif de la solution sur satcom1 (ou tout autre suivant)
+
 - hosts: localhost
   connection: local
   tags: ['local', 'reconf', 'always']
@@ -49,12 +51,16 @@
       register: out
     #- debug: var=out
       
-    - name: copy procom1 conf for procom3 (prepare transition)
-      shell: "cp {{tmpconffile}}procom1 {{tmpconffile}}procom3"
+    - name: copy procom1 conf for procom3 and satcom1 (prepare transition)
+      copy: 
+        src: "{{tmpconffile}}procom1"
+        dest: "{{tmpconffile}}{{item}}"
+      loop:
+        - "procom3"
+        - "satcom1"
 
-#TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
-- hosts: procom3 profntd1 profnte1 prefnt2 profntj1 profntr1 profnts1 #procom1
+- hosts: satcom1
   gather_facts: True
 
   vars:
@@ -66,20 +72,12 @@
   
   tasks:
     - name: gestion paramètre
-      tags: ['reconf', 'install']
+      tags: ['reconf', 'install', 'satcom1']
       set_fact:
         filterprocess: "{{ filter | default('') }}"
 
-    - name: dépot bash-static
-      tags: ['install']
-      copy:
-        src: files/bash-static
-        dest: /bin/bash-static
-        mode: 0755
-      become: true
-
     - name: dépot script indird
-      tags: ['install']
+      tags: ['install', 'satcom1']
       copy: 
         src: "{{ srcdir }}/indird"
         dest: "{{ bindir }}"
@@ -87,17 +85,16 @@
       become: True
       register: chgscript
 
-    - name: dépot scripts de contrôle et de rsync supervisés
-      tags: ['scripts']
+    - name: dépot script de contrôle
+      tags: ['scripts', 'satcom1']
       copy: 
-        src: "files/{{ item }}"
+        src: "files/indirdctl"
         dest: "{{ bindir }}"
         mode: 0755
       become: True
-      with_items: ['indirdctl', 'indird_rsync.sh']
 
     - name: dépot sonde norme
-      tags: ['scripts']
+      tags: ['scripts', 'satcom1']
       copy: 
         src: "files/normed_indird.sh"
         dest: "{{ bindir }}/norme.d/indird.sh"
@@ -105,7 +102,7 @@
       become: True
 
     - name: dépot sonde state
-      tags: ['scripts']
+      tags: ['scripts', 'satcom1']
       copy: 
         src: "files/stated_indird"
         dest: "{{ bindir }}/state.d/indird"
@@ -113,7 +110,7 @@
       become: True
 
     - name: dépot configuration
-      tags: ['reconf']
+      tags: ['reconf', 'satcom1']
       copy:
         src: "{{ tmpconffile }}{{ ansible_hostname }}"
         dest: "{{ conffile }}"
@@ -122,7 +119,7 @@
       register: chgconf
 
     - name: dépot services
-      tags: ['install']
+      tags: ['install', 'satcom1']
       copy: 
         src: "{{ srcdir }}/{{ item }}"
         dest: "{{ systemddir }}"
@@ -133,19 +130,19 @@
         - 'indirdwake@.path'
       become: True
 
-    - name: setup service indird
-      tags: ['install']
-      service:
-        name: indird@{}
-        enabled: False
-        state: stopped
-      become: True
+    # - name: setup service indird
+    #   tags: ['install', 'satcom1']
+    #   service:
+    #     name: indird@{}
+    #     enabled: False
+    #     state: stopped
+    #   become: True
 
-    - name: lister les services
-      tags: ['reconf', 'install']
-      shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
-      register: services
-      changed_when: False
+    # - name: lister les services
+    #   tags: ['reconf', 'install', 'satcom1']
+    #   shell: "cat {{ conffile }} | jq -r 'keys|.[]' | grep '{{ filterprocess }}'; exit 0"
+    #   register: services
+    #   changed_when: False
 
     - name: mode reload
       tags: ['reconf']
@@ -153,13 +150,13 @@
         state: reloaded
       when: chgconf.changed == true
     - name: mode restart
-      tags: ['install']
+      tags: ['install', 'satcom1']
       set_fact:
-        state: restarted
+        state: stopped
       when: chgscript.changed == true
 
     - name: setup services indird@service
-      tags: ['reconf', 'install']
+      tags: ['reconf', 'install', 'satcom1']
       service:
         name: "indird@{{ item }}"
         enabled: False
@@ -169,7 +166,7 @@
       when: services is not skipped and state is defined
 
     - name: dépot logrotate
-      tags: ['logrotate', 'install']
+      tags: ['logrotate', 'install', 'satcom1']
       copy:
         src: "files/logrotate_indird"
         dest: "/etc/logrotate.d/indird"

@@ -17,8 +17,9 @@ Dans [github](https://github.com/Epiconcept-Paris/infra-files-flow), vous pouvez
 
 ## <a name="newf">Nouvelles fonctionnalités en 2025-2026</a>
 
-Ces nouvelles fonctionnalités ont été ajoutées à `indird` pour alléger la charge système dans la gestion d'un grand nombre de flux (plusieurs centaines).
-Elles se manifestent essentiellement par la prise en compte d'un répertoire `/etc/indird.d`, dans lequel chaque flux a son sous-répertoire qui va contenir des fichiers de configuration spécifiques au flux.
+Ces nouvelles fonctionnalités ont été ajoutées à `indird` pour alléger la charge système dans la gestion d'un grand nombre de flux (plusieurs centaines).  
+Elles se manifestent essentiellement par la prise en compte d'un répertoire `/etc/indird.d`, dans lequel chaque flux a son sous-répertoire qui va contenir des fichiers de configuration spécifiques au flux.  
+L'analyse (parsing) de la configuration du flux a également été accélérée d'un facteur de 25 environ (un seul appel à `jq` au lieu d'entre 100 et 200 précédemment).  
 
 ### Gestion d'un fichier de configuration par flux
 
@@ -31,14 +32,18 @@ Par exemple, pour un flux nommé `rdvradio` :
 ```console
 indird rdvradio split
 ```
+Si le fichier `/etc/indird.d/rdvradios/config.json` existe déjà avant le lancement de la commande `split`, trois cas peuvent se produire :
+* il n'y a pas (ou plus) dans `/etc/indird.conf` de membre concernant le flux : cela est signalé et un code d'erreur spécifique 8 (ExNoAllCfg) est retourné
+* il y a dans `/etc/indird.conf` un membre strictement identique à celui de `/etc/indird.d/rdvradios/config.json` : cela est également signalé avec un code d'erreur 9 (ExCfgEql)
+* dans le dernier cas, la différence entre le membre dans `/etc/indird.conf` et celui dans `/etc/indird.d/rdvradios/config.json` est affichée avec un code d'erreur 10 (ExCfgDif)
 
 ### Gestion d'un cache du fichier de configuration
 
-Si le fichier non-vide `/etc/indird.d/<flux>/cache.sh` existe ET qu'il est plus récent que le fichier `/etc/indird.d/<flux>/config.json` (ou que le fichier `/etc/indird.conf` si `config.json` n'existe pas), ce fichier `cache.sh` sera chargé (très rapidement) en lieu et place du fichier `config.json`.
+Si le fichier non-vide `/etc/indird.d/<flux>/cache.bash` existe ET qu'il est plus récent que le fichier `/etc/indird.d/<flux>/config.json` (ou que le fichier `/etc/indird.conf` si `config.json` n'existe pas), ce fichier `cache.bash` sera chargé (très rapidement avec une commande `source`) en lieu et place du fichier `config.json`.
 
-La génération ou la mise à jour du fichier `cache.sh` sont automatiques si le fichier est absent ou à chaque fois que le fichier JSON (par flux ou global) est vu comme plus récent que le fichier `cache.sh`.
+La génération ou la mise à jour du fichier `cache.bash` sont automatiques si le fichier est absent ou à chaque fois que le fichier JSON (par flux ou global) est vu comme plus récent que le fichier `cache.bash`.
 
-Il est possible d'invoquer `indird` pour gérer le cache d'un flux avec la commande utilitaire `cache` qui dispose elle même des sous-commandes `gen`, `del`, `chk` et `prt` pour respectivement créer, supprimer, vérifier et formatter pour vérification le fichier `cache.sh`.
+Il est possible d'invoquer le script `indird` pour gérer le cache d'un flux avec la commande utilitaire `cache` qui dispose elle même des sous-commandes `gen`, `del`, `chk` et `prt` pour respectivement créer, supprimer, vérifier et formatter pour vérification le fichier `cache.bash`.
 Par exemple, pour le flux nommé `rdvradio` :
 
 ```console
@@ -48,15 +53,45 @@ indird rdvradio cache chk	# Vérifier le cache
 indird rdvradio cache prt	# Formatter le cache pour examen et comparaisons
 ```
 
+### Gestion d'un fichier de configuration globale `/etc/indird.d/.global.json`
+
+S'il est présent, le fichier `/etc/indird.d/.global.json` contient un objet JSON dont les membres permettent de surcharger des variables globales internes du script `indird`.  
+Les membres présents sont simplement trandformés en assignations de variables `bash` et l'ensemble est évalué, sans contrôle sur les noms de membres. C'est donc une fonctinnalité puissante qui n'est pour l'instant prévue que pour modifier les variables `Use_lsof` et `wDelay` du script `indird`
+
+
 ### Gestion d'un système de validation de fichier reçu pour remplacer `lsof`
 
 Ce système s'appuie sur l'apparition, dans le répertoire `path` (voir la [Structure du fichier de configuration](#cfgs)) de chaque flux, d'un fichier témoin vide `.ok/<fichier>` pour chaque `<fichier>` reçu dans le répertoire `path` lui-même.
 
 Ce fichier témoin doit être créé par le programme qui transfère les fichiers dans le répertoire `path` (par exemple `proftpd`).
-Il est utilisé par `indird` pour détecter la fin de l'écriture du fichier correpondant et est alors immédiatement supprimé.
+Il est utilisé par le script `indird` pour détecter la fin de l'écriture du fichier correpondant et est alors immédiatement supprimé par `indird`.
 
-L'activation de cette fonctionnalité dépend de la variable `Use_lsof='y'` (actuellement à la ligne 14 de `indird/indird`), ce qui veut dire que l'ancien système de détection, utilisant la commande `lsof`, est par défaut utilisé au lieu de la nouvelle fonctionnalité.  
-Si le script `indird` détecte la simple existence d'un fichier `/etc/indird.d/.ok` (de contenu ignoré), la variable `Use_lsof` est automatiquement modifiée en interne et la nouveau système utilisé.
+L'activation de cette fonctionnalité dépend de la variable `Use_lsof` actuellement affectée à 'y' à la ligne 16 de `indird/indird`, ce qui veut dire que l'ancien système de détection, utilisant la commande `lsof`, est par défaut utilisé au lieu de la nouvelle fonctionnalité.  
+Pour changer la valeur de la variable `Use_lsof`, il suffit de créer un membre `Use_lsof` dans le fichier de configuration globale `/etc/indird.d/.global.json`, par exemple ainsi :
+
+```JSON
+{
+    "Use_lsof": "n"
+}
+```
+Que le système de détection de fin d'écriture soit `lsof` ou les fichiers `.ok/<fichier>`, quand le script `indird` détecte que l'écriture d'un ou plusieurs fichiers n'est pas terminée, il attend avec la commande standard `sleep` un délai au 1/10e de seconde contenu dans la variable globale `wDelay` (par défaut `0.2`) avant la prochaine boucle de vérification du contenu du répertoire `path`.  
+Comme cette variable est globale, il est possible de la modifier par `/etc/indird.d/.global.json`, ainsi par exemple dans le cas précédent :
+
+```JSON
+{
+    "Use_lsof": "n",
+    "wDelay": "0.5"
+}
+```
+Il est à noter qu'il est également possible d'ajouter à `/etc/indird.d/.global.json` un membre `INDIRD_NLOCAL` permettant d'affecter cette variable de manière permanente :
+
+```JSON
+{
+    "Use_lsof": "n",
+    "wDelay": "0.5"
+    "INDIRD_NLOCAL": "y"
+}
+```
 
 ### Gestion des fichiers entrants par ordre d'arrivée
 
@@ -68,21 +103,23 @@ S'il est présent, il peut prendre les valeurs `mtime` ou `alpha` (par défaut).
 
 ### Gestion du mode debug d'un flux par simple existence d'un fichier
 
-Si un fichier `/etc/indird.d/<flux>/debug` existe, il est équivalent à la présence dans la configuration du flux de `"debug":true`.  
+Si un fichier `/etc/indird.d/<flux>/debug` existe, il est équivalent à la présence dans la configuration du flux de `"debug": true`.  
 Cette fonctionnalité est surtout utile dans la fonction WakeupMain du script `indird`, qui peut être invoquée très fréquemment.
 Cela a moins d'incidence maintenant que le cache de configuration a été implémenté.
 
 ### Prise en compte des nouvelles fonctionnalités dans `indirdctl`
 
-(en attente de l'implémentation de cette prise en compte)
+Le script `ansible/files/indirdctl` a été revu et augmenté pour permettre l'appel pour tous les flux des nouvelles commandes ajoutées au script `indird/indird`. Sont ainsi apparues les commandes suivantes : 
+* `split`
+* `cache <sub-cmd>` ou `<sub-cmd>` peut être `gen` (generate), `del` (delete), `chk` (check) ou `prt` (print)
+* `chk`
+* `nlchk`
+* `paths`
 
-### <a name="nloc">Modification de la vérification non-locale des fichiers de configuration</a>
+### <a name="nloc">Vérification non-locale des fichiers de configuration</a>
 
-La vérification non-locale (hors de la machine sur laquelle il est destiné à être utilisé) du fichier de configuration se faisait précédemment avec la commande utilitaire `nlcheck` de `indird`.
-
-Cette commande a été remplaçée par la détection dans la commande existante `check` d'une variable d'environnement `INDIRD_NLOCAL` qui soit non-vide (par exemple : `INDIRD_NLOCAL=y`)
-
-Cette variable `INDIRD_NLOCAL` est évidemment utilisée aussi par la commande utilitaire `cache chk`.
+La vérification non-locale du fichier de configuration (hors de la machine sur laquelle il est destiné à être utilisé) peut se faire avec la commande utilitaire `nlcheck` de `indird`, au lieu de la commande `check` pour une vérification locale.  
+Mais la commande `check` n'est pas la seule à effectuer une verification locale la configuration, c'est également le cas des commandes `split` et `cache chk`. Si une vérification de la configuration doit être effectuée hors de la machine pour laquelle elle est destinée, il faut alors ajouter à l'environnement la variable `INDIRD_NLOCAL` avec une valeur non vide (par exemple : `INDIRD_NLOCAL=y`)
 
 
 ## <a name="intro">Introduction</a>
@@ -148,7 +185,7 @@ Le rechargement de la configuration `indird.conf` (après modifications) est gé
 ```
 NOTE : En cas, de modification de l'élément `path` de la configuration, le lien symbolique `/run/indird/<tag>_path` vers le chemin indiqué par `path` est automatiquement mis à jour par `indird`.
 
-Le fichier de log interne de `indird` est pour l'instant `/var/log/indird.log` et des liens symboliques de fonctionnement son créés dans le répertoire `/run/indird` (créé par le script si nécessaire). Le scipt `indird` crée également des fichiers temporaires dans `/tmp`. Ces trois chemins sont déterminés par les variables shell `LogFile`, `RunDir` et `TmpDir` au début du script.
+Le fichier de log interne de `indird` est pour l'instant `/var/log/indird.log` et des liens symboliques de fonctionnement son créés dans le répertoire `/run/indird` (créé par le script si nécessaire). Le scipt `indird` crée également des fichiers temporaires dans `/tmp`. Ces trois chemins sont déterminés par les variables globales `LogFile`, `RunDir` et `TmpDir` au début du script.
 
 ## <a name="algo">Algorithme de fonctionnement</a>
 
@@ -160,8 +197,8 @@ Après lecture et vérification du fichier de configuration, `indird` entre dans
 indéfiniment (jusqu'à un arrêt par SIGTERM)
   sortir de 'sleep' (par fin du délai ou par 'kill') et sauver le dernier 'mtime' de `path`
   tant que `path` a été modifié ('mtime') depuis le dernier tour (de cette boucle)
-    pour toutes les `filetypes` membres de l'objet global `rules`
-      pour tous les fichiers correspondant à ce membre de `filetypes`
+    pour toutes les membres de `filetypes` aussi membres de l'objet global `rules`
+      pour tous les fichiers correspondant à ce membre de `filetypes` et de `rules`
 	pour toutes les étapes de la règle
 	  lancer l'action de l'étape
 	  pour toutes les fins (`ends`) de l'étape
@@ -170,6 +207,7 @@ indéfiniment (jusqu'à un arrêt par SIGTERM)
 	  pour tous les (`logs`) de l'étape
 	    logger le résultat de l'action de l'étape
   attendre par 'sleep' la durée `sleep` spécifiée dans la configuration
+
 l'activation par `systemd` de `indirdwake` rappelle un `indird` secondaire pour interrompre le 'sleep'
 ```
 

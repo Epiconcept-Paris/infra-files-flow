@@ -20,13 +20,13 @@ keys=$(<<<"$keys" grep -v '^macros$')
 for host in $keys
 do
     #	Extract $host config
-    hcfg=$(<<<"$conf" jq ".hosts.$host.confs" | tee out/$host)
+    hcfg=$(<<<"$conf" jq ".hosts.$host.confs")
     test "$hcfg" = 'null' && { echo "$Prg: cannot find '.hosts.$host.confs' in \"$yaml\"" >&2; continue; }
     #	Check each tag in $conf
     echo "======= Checking host $host in $yaml ======="
     for tag in $(<<<"$hcfg" jq -r 'keys_unsorted[]' | grep -v '^macros$')
     do
     echo "------- Checking $tag on host $host -------"
-	<<<"$hcfg" jq ".$tag" | INDIRD_CONFIG=- INDIRD_NLOCAL=y indird $tag check	# use non-local check mode
+	<<<"$hcfg" jq ".$tag" | INDIRD_CONFIG=- indird $tag nlcheck	# non-local checks only
     done
 done
