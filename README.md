@@ -234,7 +234,7 @@ Si un fichier `/etc/indird.d/<flux>/config.json` est présent et non-vide, il au
 Le fichier de configuration de `indird` est au format JSON. Au niveau principal, les membres de l'objet racine (anonyme) sont les différentes instances (au moins une) spécifiés dans le fichier par leur **\<flux>**. Chaque membre **\<flux>** est à son tour un objet JSON avec un certain nombre de membres obligatoires [o] et facultatifs [f] selon la liste suivante:
 
 * `path` [o] - Le chemin absolu du répertoire à surveiller. Son existence est vérifiée au lancement de `indird`, sinon *abort*
-* `sleep` {o] - Le délai d'attente quand `path` ne reçoit pas de fichier. La valeur doit bien sur être numérique et d'au moins 5 (secondes) (variable `MinSleep` dans le script), sinon *abort*
+* `sleep` [o] - Le délai d'attente quand `path` ne reçoit pas de fichier. La valeur doit bien sur être numérique et d'au moins 5 (secondes) (variable `MinSleep` dans le script), sinon *abort*
 * `host` [f] - Le nom réseau du système, qui doit correspondre au résultat de `hostname`, sinon *abort* de `indird`
 * `shell` [f] - Le nom d'un shell autre que `sh` pour exécuter les commandes. La commande doit être disponible, sinon *abort* de `indird`
 * `debug` [f] - Une valeur `true` ou `false` (par défaut), sinon *abort*, qui active ou non les logs de debug de `indird`
@@ -329,8 +329,8 @@ sudo npm install -g yamljs
 `indird` dispose d'options destinées à être utilisées en ligne de commande après le **tag** (nom du flux) :
   - `config` - cette option affiche sans vérification la configuration pour un `<flux>` donné, sous une forme analogue à celle des *MIB SNMP* (par exemple : `filetypes.hl7.method="fileglob"`)
   - `check` - cette option vérifie la cohérence de la configuration entre ses différents objets, ainsi que l'existence ou la conformité des éléments *externes* à cette configuration : les chemins (`path`, `shell`) et le `host`
-  - `split` - cette option génère le fichier `/etc/indird.d/<flux>/config.json` qui doit préalablement ne pas exister
-  - `cache` - cette option gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<flux>/config.json`, respectivement avec les sous-commandes :
+  - `split` - cette option génère le fichier `/etc/indird.d/<flux>/config.json` qui doit préalablement ne pas exister. Le fichier `/etc/indird.d/<flux>/cache.bash` est également généré
+  - `cache` - cette option gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<flux>/cache.bash`, respectivement avec les sous-commandes :
     - `gen` pour la génération
     - `del` pour la suppression
     - `chk` pour la vérification
