@@ -155,15 +155,15 @@
         state: stopped
       when: chgscript.changed == true
 
-    - name: setup services indird@service
-      tags: ['reconf', 'install', 'satcom1']
-      service:
-        name: "indird@{{ item }}"
-        enabled: False
-        state: "{{ state }}"
-      with_items: "{{ services.stdout_lines }}"
-      become: True
-      when: services is not skipped and state is defined
+    # - name: setup services indird@service
+    #   tags: ['reconf', 'install', 'satcom1']
+    #   service:
+    #     name: "indird@{{ item }}"
+    #     enabled: False
+    #     state: "{{ state }}"
+    #   with_items: "{{ services.stdout_lines }}"
+    #   become: True
+    #   when: services is not skipped and state is defined
 
     - name: dépot logrotate
       tags: ['logrotate', 'install', 'satcom1']
