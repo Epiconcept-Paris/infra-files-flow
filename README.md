@@ -88,7 +88,7 @@ Il est à noter qu'il est également possible d'ajouter à `/etc/indird.d/.globa
 ```JSON
 {
     "Use_lsof": "n",
-    "wDelay": "0.5"
+    "wDelay": "0.5",
     "INDIRD_NLOCAL": "y"
 }
 ```
