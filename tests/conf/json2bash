@@ -1,0 +1,53 @@
+#!/bin/bash
+#
+#	json2bash - Generate bash-config from JSON-config
+#
+# shellcheck disable=SC2016     # Expressions don't expand in single quotes
+#
+Prg=$(basename $0)
+
+GenConf()
+{
+    local conf inpar scals sfmt kpath input kvals kfmt
+
+    conf="${2:-Conf}"
+    #
+    # The jq code below transforms JSON into bash-array assignments in 3 steps:
+    #
+    #	- we gather our input in an array of streams after discarding '.macros'
+    inpar='[del(.macros) | tostream]'			# Array of inputs
+
+    #	- a 1st filter will then output all the scalar values at their path
+    scals='.[] | select(length == 2)'			# Scalars
+    sfmt='  [\(first | join("."))]=\(last | @sh)'	# Scalar bash format
+
+    #	- a 2nd filter will gather the key pathss for each input-tree's level
+    kpath='. as $a | [ .[] | .[0] | .[0:length-1] ] | unique | .[] | . as $p'	# Key paths
+    input='fromstream($a | .[])'						# Raw input
+    kvals='[ $p, (getpath($p) | keys_unsorted) ]'				# Key (paths &) values
+    kfmt='  [\(first | . += [ "_keys" ] | join("."))]=\(last | join(" ") | @sh)' # Key bash format
+    #
+    # Many thanks to TDE <t.delamare@epiconcept.fr> for his expertise in jq
+    #
+
+    echo "declare -A $conf=("
+    <<<"$1" jq -cr "$inpar | ($scals | \"$sfmt\"), ($kpath | $input | $kvals | \"$kfmt\")"
+    echo ')'
+}
+
+Cnf=''
+if [ "$1" ]; then
+    if [ "$1" = '-' ]; then
+	Cnf=$(cat)
+    elif [ -s "$1" ]; then
+	Cnf=$(<"$1")
+    else
+	echo "Usage: $Prg JSON-config-file [ var-name ]" >&2
+	exit 1
+    fi
+    shift
+else
+    Cnf=$(cat)
+fi
+
+GenConf "$Cnf" "$@"

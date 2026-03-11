@@ -1,0 +1,45 @@
+#!/bin/bash
+
+Prg=$(basename "$0")
+
+#   Ouput Conf in readable format reflecting initial JSON structure
+#
+# params <current-path> (initially empty)
+# function recursively calls itself with different values of path
+PrettyConf()
+{
+    #global Conf
+    local idx key path
+
+    if [ "$1" ]; then
+	idx="$1._keys"
+    else
+	echo 'declare -A Conf=('
+	idx="_keys"
+    fi
+
+    if [ -v Conf[$idx] ]; then
+	printf '  [%s]="%s"\n' "$idx" "${Conf[$idx]}"
+	for key in ${Conf[$idx]}; do
+	    test "$1" && path="$1.$key" || path="$key"
+	    PrettyConf "$path"
+	done
+    elif [ "$1" ]; then
+	printf '  [%s]="%s"\n' "$1" "$(<<<"${Conf[$1]}" sed -r 's/(["$\`])/\\\1/g')"
+    fi
+    [ "$1" ] || echo ')'
+}
+
+if [ "$1" ]; then
+    if [ "$1" = '-' ]; then
+	source <(cat)
+    elif [ -s "$1" ] && grep -q '^declare -A ' "$1"; then
+	source "$1"
+    else
+	echo "Usage: $Prg declare-p-output-file" >&2
+	exit 1
+    fi
+else
+    Cnf=$(cat)
+fi
+PrettyConf
