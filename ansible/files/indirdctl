@@ -168,7 +168,7 @@ fi
 
 #   Run command $1
 case $1 in
-    status)	for i in $List; do systemctl status "$Name@$i"; done ;;
+    stat|status) for i in $List; do systemctl status "$Name@$i"; done ;;
     start|stop|restart|reload)
 		for i in $List; do Bold "$i"; sudo systemctl "$1" "$Name@$i"; done ;;
     resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "$Name@$i"; done ;;
