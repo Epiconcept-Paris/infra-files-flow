@@ -1014,7 +1014,7 @@ do
 	    test -v Conf["filetypes.$ft.orderby"] && ord="${Conf["filetypes.$ft.orderby"]}"
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
 		met='fglob'
-		test "$ord" != 'mtime' && Files="$pat" || Files=$(ls -tr $pat)
+		test "$ord" != 'mtime' && Files="$pat" || Files=$(ls -tr $pat 2>/dev/null)
 	    else	# regexp
 		test "$ord" = 'mtime' && opt=' -tr' || opt=''
 		Files=$(ls$opt | grep "$pat")

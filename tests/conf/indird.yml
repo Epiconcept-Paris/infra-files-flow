@@ -64,14 +64,7 @@ hosts:
            ko: test $i_CODE -ne 0
 
         macros:
-          - &pdf
-            action: copy
-            ends:
-              - { cond: ok, end: done }
-              - { cond: ko, end: fail }
-            logs:
-              - debug
-          - &md
+          - &copy
             action: copy
             ends:
               - { cond: ok, end: done }
@@ -82,10 +75,10 @@ hosts:
         rules:
           pdf:
             - desc: loki PDF instance
-              <<: *pdf
+              <<: *copy
           md:
             - desc: loki Markdown instance
-              <<: *md
+              <<: *copy
 
       odin:
         path: /home/cdt/files-flow/tests/data/recv/odin
@@ -108,10 +101,10 @@ hosts:
         rules:
           pdf:
             - desc: odin PDF instance
-              <<: *pdf
+              <<: *copy
           md:
             - desc: odin Markdown instance
-              <<: *md
+              <<: *copy
 
       rind:
         path: /home/cdt/files-flow/tests/data/recv/rind
@@ -136,10 +129,10 @@ hosts:
         rules:
           pdf:
             - desc: rind PDF instance
-              <<: *pdf
+              <<: *copy
           md:
             - desc: rind Markdown instance
-              <<: *md
+              <<: *copy
 
       vali:
         env_prefix: i_
@@ -163,9 +156,9 @@ hosts:
         rules:
           pdf:
             - desc: vali PDF instance
-              <<: *pdf
+              <<: *copy
           md:
             - desc: vali Markdown instance
-              <<: *md
+              <<: *copy
 
 # vim: et sw=2
