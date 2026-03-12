@@ -160,13 +160,13 @@ Une vérification de l'accessibilité de `jq` et optionnellement de `lsof` est f
 
 Il faut copier les fichiers aux emplacements suivants :
 ```console
-indird/indird		/usr/local/bin
-indird@.service		/etc/systemd/system
-indirdwake@.service	/etc/systemd/system
-indirdwake@.path	/etc/systemd/system
-examples/indird.conf	/etc
+indird/indird			/usr/local/bin
+ansible/files/indirdctl		/usr/local/bin
+indird/indird@.service		/etc/systemd/system
+indird/indirdwake@.service	/etc/systemd/system
+indird/indirdwake@.path		/etc/systemd/system
 ```
-et accessoirement les utilitaires fournis (voir la section **Utilitaires** dans ce document) :
+et accessoirement les [utilitaires](#y2js) fournis :
 ```console
 utils/yaml2json		/usr/local/bin
 utils/mkiconf		/usr/local/bin
