@@ -6,6 +6,14 @@ Script et configuration `systemd` de gestion de répertoires d'arrivée
 Dans [github](https://github.com/Epiconcept-Paris/infra-files-flow), vous pouvez naviguer aisément entre les sections de ce document en utilisant le menu dont l'icône [**☰**] se trouve à droite de la barre juste au dessus de la zone ou apparait ce texte.
 
 * [Nouvelles fonctionnalités](#newf)
+  * [Gestion d'un fichier de configuration par flux](#scfg)
+  * [Gestion d'un cache du fichier de configuration](#cfgc)
+  * [Gestion d'un fichier de configuration globale `/etc/indird.d/.global.json`](#gcfg)
+  * [Gestion d'un système de validation de fichier reçu, en remplacement de `lsof`](#fwvs)
+  * [Gestion des fichiers entrants par ordre d'arrivée](#odby)
+  * [Gestion du mode debug d'un flux par simple existence d'un fichier](#sdbg)
+  * [Prise en compte des nouvelles fonctionnalités dans `indirdctl`](#ictl)
+  * [Vérification non-locale des fichiers de configuration](#nloc)
 * [Introduction](#intro)
 * [Utilitaire prérequis](#ureq)
 * [Installation du script indird](#inst)
@@ -21,7 +29,7 @@ Ces nouvelles fonctionnalités ont été ajoutées à `indird` pour alléger la 
 Elles se manifestent essentiellement par la prise en compte d'un répertoire `/etc/indird.d`, dans lequel chaque flux a son sous-répertoire qui va contenir des fichiers de configuration spécifiques au flux.  
 L'analyse (parsing) de la configuration du flux a également été accélérée d'un facteur de 25 environ (un seul appel à `jq` au lieu d'entre 100 et 200 précédemment).  
 
-### Gestion d'un fichier de configuration par flux
+### <a name="scfg">Gestion d'un fichier de configuration par flux
 
 Si le fichier non-vide `/etc/indird.d/<flux>/config.json` existe, il sera prise en compte préférentiellement au membre du fichier global `/etc/indird.conf` concernant le flux.
 Ce fichier `config.json` contient un objet JSON qui doit comporter un seul membre de premier niveau portant le nom du `<flux>` et qui contiendra à son tour les paramètres du flux (dont, par exemple, `path` et `sleep`).
@@ -37,7 +45,7 @@ Si le fichier `/etc/indird.d/rdvradios/config.json` existe déjà avant le lance
 * il y a dans `/etc/indird.conf` un membre strictement identique à celui de `/etc/indird.d/rdvradios/config.json` : cela est également signalé avec un code d'erreur 9 (ExCfgEql)
 * dans le dernier cas, la différence entre le membre dans `/etc/indird.conf` et celui dans `/etc/indird.d/rdvradios/config.json` est affichée avec un code d'erreur 10 (ExCfgDif)
 
-### Gestion d'un cache du fichier de configuration
+### <a name="cfgc">Gestion d'un cache du fichier de configuration
 
 Si le fichier non-vide `/etc/indird.d/<flux>/cache.bash` existe ET qu'il est plus récent que le fichier `/etc/indird.d/<flux>/config.json` (ou que le fichier `/etc/indird.conf` si `config.json` n'existe pas), ce fichier `cache.bash` sera chargé (très rapidement avec une commande `source`) en lieu et place du fichier `config.json`.
 
@@ -53,13 +61,13 @@ indird rdvradio cache chk	# Vérifier le cache
 indird rdvradio cache prt	# Formatter le cache pour examen et comparaisons
 ```
 
-### Gestion d'un fichier de configuration globale `/etc/indird.d/.global.json`
+### <a name="gcfg">Gestion d'un fichier de configuration globale `/etc/indird.d/.global.json`
 
 S'il est présent, le fichier `/etc/indird.d/.global.json` contient un objet JSON dont les membres permettent de surcharger des variables globales internes du script `indird`.  
-Les membres présents sont simplement trandformés en assignations de variables `bash` et l'ensemble est évalué, sans contrôle sur les noms de membres. C'est donc une fonctinnalité puissante qui n'est pour l'instant prévue que pour modifier les variables `Use_lsof` et `wDelay` du script `indird`
+Les membres présents sont simplement trandformés en assignations de variables `bash` et l'ensemble est évalué, sans contrôle sur les noms de membres (donc des variables locales). C'est donc une fonctinnalité puissante qui n'est pour l'instant prévue que pour modifier les variables `Use_lsof` et `wDelay` du script `indird`, et optionnellement la variable `NLocal`, comme détaillé dans le paragraphe suivant.
 
 
-### Gestion d'un système de validation de fichier reçu pour remplacer `lsof`
+### <a name="fwvs">Gestion d'un système de validation de fichier reçu, en remplacement de `lsof`
 
 Ce système s'appuie sur l'apparition, dans le répertoire `path` (voir la [Structure du fichier de configuration](#cfgs)) de chaque flux, d'un fichier témoin vide `.ok/<fichier>` pour chaque `<fichier>` reçu dans le répertoire `path` lui-même.
 
@@ -83,17 +91,17 @@ Comme cette variable est globale, il est possible de la modifier par `/etc/indir
     "wDelay": "0.5"
 }
 ```
-Il est à noter qu'il est également possible d'ajouter à `/etc/indird.d/.global.json` un membre `INDIRD_NLOCAL` permettant d'affecter cette variable de manière permanente :
+Il est à noter qu'il est également possible d'ajouter à `/etc/indird.d/.global.json` un membre `NLocal` permettant d'affecter de manière permanente les vérifications non-locales, ce qui se fait ponctuellement en affectant la variable d'environnement `INDIRD_NLOCAL` :
 
 ```JSON
 {
     "Use_lsof": "n",
     "wDelay": "0.5",
-    "INDIRD_NLOCAL": "y"
+    "NLocal": "y"
 }
 ```
 
-### Gestion des fichiers entrants par ordre d'arrivée
+### <a name="odby">Gestion des fichiers entrants par ordre d'arrivée
 
 Dans les premières versions d'`indird`, les fichiers étaient traités par ordre alphabétique.  
 Mais quand il y a beaucoup de fichiers entrants, il est préférable de les traiter par ordre d'arrivée.
@@ -101,37 +109,46 @@ Mais quand il y a beaucoup de fichiers entrants, il est préférable de les trai
 Un membre optionnel 'orderby' a donc été rajouté aux membres obligatoires de `filetypes.<suffix>`.
 S'il est présent, il peut prendre les valeurs `mtime` ou `alpha` (par défaut).
 
-### Gestion du mode debug d'un flux par simple existence d'un fichier
+### <a name="sdbg">Gestion du mode debug d'un flux par simple existence d'un fichier
 
 Si un fichier `/etc/indird.d/<flux>/debug` existe, il est équivalent à la présence dans la configuration du flux de `"debug": true`.  
 Cette fonctionnalité est surtout utile dans la fonction WakeupMain du script `indird`, qui peut être invoquée très fréquemment.
 Cela a moins d'incidence maintenant que le cache de configuration a été implémenté.
 
-### Prise en compte des nouvelles fonctionnalités dans `indirdctl`
+### <a name="ictl">Prise en compte des nouvelles fonctionnalités dans `indirdctl`
 
 Le script `ansible/files/indirdctl` a été revu et augmenté pour permettre l'appel pour tous les flux des nouvelles commandes ajoutées au script `indird/indird`. Sont ainsi apparues les commandes suivantes : 
 * `split`
-* `cache <sub-cmd>` ou `<sub-cmd>` peut être `gen` (generate), `del` (delete), `chk` (check) ou `prt` (print)
+* `cache <sub-cmd>` ou `<sub-cmd>` peut être :
+  * `gen` (generate)
+  * `del` (delete)
+  * `chk` (check)
+  * `prt` (print)
 * `chk`
 * `nlchk`
 * `paths`
 
 ### <a name="nloc">Vérification non-locale des fichiers de configuration</a>
 
-La vérification non-locale du fichier de configuration (hors de la machine sur laquelle il est destiné à être utilisé) peut se faire avec la commande utilitaire `nlcheck` de `indird`, au lieu de la commande `check` pour une vérification locale.  
-Mais la commande `check` n'est pas la seule à effectuer une verification locale la configuration, c'est également le cas des commandes `split` et `cache chk`. Si une vérification de la configuration doit être effectuée hors de la machine pour laquelle elle est destinée, il faut alors ajouter à l'environnement la variable `INDIRD_NLOCAL` avec une valeur non vide (par exemple : `INDIRD_NLOCAL=y`)
+La vérification non-locale du fichier de configuration (hors de la machine sur laquelle il est destiné à être utilisé) peut se faire avec la commande utilitaire `nlcheck` de `indird`, au lieu de la commande `check` pour une vérification locale (plus complète).  
+Mais la commande `check` n'est pas la seule à effectuer une verification locale de la configuration, c'est également le cas des commandes `split` et `cache chk`. Si une vérification de la configuration doit être effectuée hors de la machine pour laquelle elle est destinée, il faut alors ajouter à l'environnement la variable `INDIRD_NLOCAL` avec une valeur non vide (par exemple : `INDIRD_NLOCAL=y`)
 
 
 ## <a name="intro">Introduction</a>
 
 Le script `bash` "`indird`" gère un flux de fichiers entrants, déposés dans un unique répertoire d'arrivée.  
-Les fichiers peuvent être de différents types et les actions effectuées sur ces fichiers peuvent varier selon le type, l'ensemble étant paramétrable dans un fichier de configuration au format JSON, sans qu'il soit nécessaire de modifier le script. Le fichier de configuration peut être extrait d'un fichier de configuration au format YAML, éventuellement plus global (plusieurs *hosts*).  
-Le script `indird` fonctionne comme un *service* `indird` de `systemd` (`man systemd.service`), donc en tant que *daemon*, en utilisant la possibilité de `systemd` de gérer plusieurs **instances** d'un même service, ce qui peut permettre dans un même système de gérer avec `indird` plusieurs répertoires d'arrivée. La configuration de ces instances peut être regroupée dans un même fichier de configuration global au système, chaque instance étant accessible par un **tag** (étiquette).  
-En l'absence d'arrivée de fichiers, le script `indird` attend par une commande `sleep` de durée paramètrable, cependant qu'une fonction spéciale de `systemd` (`man systemd.path`), paramétrée comme `indirdwake`, surveille toute modification du répertoire d'arrivée. Lorsque celle-ci se produit, `systemd` rappelle par la commande `indird <flux> wakeup` un `indird` secondaire qui `kill` s'il y a lieu le `sleep` en cours du `indird` principal, relançant ainsi la boucle de traitement des fichiers.
+Les fichiers peuvent être de différents types et les actions effectuées sur ces fichiers peuvent varier selon le type, l'ensemble étant paramétrable dans un fichier de configuration au format JSON, sans qu'il soit nécessaire de modifier le script.
+Le fichier de configuration peut être extrait d'un fichier de configuration au format YAML, éventuellement plus global (plusieurs *hosts*).  
+Le script `indird` fonctionne comme un *service* `indird` de `systemd` (`man systemd.service`), donc en tant que *daemon*, en utilisant la possibilité de `systemd` de gérer plusieurs **instances** d'un même service.
+Cela peut permettre dans un même système de gérer avec `indird` plusieurs répertoires d'arrivée.
+La configuration de ces instances peut être regroupée dans un même fichier de configuration global au système, chaque instance étant accessible par un **tag** (étiquette).  
+En l'absence d'arrivée de fichiers, le script `indird` attend par une commande `sleep` de durée paramètrable, cependant qu'une fonction spéciale de `systemd` (`man systemd.path`), paramétrée comme `indirdwake`, surveille toute modification du répertoire d'arrivée.
+Lorsque celle-ci se produit, `systemd` rappelle par la commande `indird <flux> wakeup` un `indird` secondaire, qui `kill` s'il y a lieu le `sleep` en cours du `indird` principal, relançant ainsi la boucle de traitement des fichiers.
 
-## <a name="deps">Utilitaire prérequis</a>
-Le script `indird` utilise l'utilitaire `jq`, qui est disponible dans les paquets Linux Debian standards.
-Une vérification de l'accessibilité de `jq` est faite au lancement de `indird`.
+## <a name="deps">Utilitaires prérequis</a>
+Le script `indird` utilise la command `jq`, qui est disponible en standard dans un paquet du même nom sous Linux Debian.
+Par défaut (modifiable dans [la configuration globale](#gcfg)), `indird` utilise également l'utilitaire `lsof`, également disponible en standard dans un paquet du même nom.
+Une vérification de l'accessibilité de `jq` et optionnellement de `lsof` est faite au lancement de `indird`.
 
 ## <a name="inst">Installation du script indird</a>
 
@@ -213,13 +230,15 @@ l'activation par `systemd` de `indirdwake` rappelle un `indird` secondaire pour 
 
 ## <a name="envv">Variables d'environnement</a>
 
-Le script `indird/indird` reconnait et utilise les variables d'environnement suivantes:
+Le script `indird/indird` reconnait et utilise **pour certaines commandes** les variables d'environnement suivantes:
 
 - `INDIRD_CONFIG` permet d'utiliser un fichier global de configuration(s) autre que `/etc/indird.conf`
 - `INDIRD_CFGDIR` permet d'utiliser un répertoire de configuration(s) par flux autre que `/etc/indird.d/`
 - `INDIRD_NLOCAL` permet d'ignorer les vérifications locales du fichier de configuration (voir [ici](#nloc))
 
 Enfin une variable `IndPfx` est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des trois variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
+
+Il est **IMPORTANT** de noter que ces variables ne sont **PAS** prises en compte dans le fonctionnement du script `indird` comme service (`daemon`).
 
 ## <a name="cfgf">Fichier de configuration</a>
 
@@ -229,6 +248,12 @@ Il s'agit par défaut de `/etc/indird.conf`, mais il est possible de spécifier 
 INDIRD_CONFIG=indird.conf indird sspdamoc check
 ```
 Si un fichier `/etc/indird.d/<flux>/config.json` est présent et non-vide, il aura priorité sur `/etc/indird.conf`. Pour rappel, il contient un object JSON avec un unique membre de 1er niveau portant le nom du flux.
+
+Il est également possible de spécifier (pour des tests) un autre répertoire `indird.d` que dans `/etc` avec la variable d'environnement `INDIRD_CFGDIR`:
+```
+INDIRD_CFGDIR=indird.d indird sspdamoc split
+```
+
 
 ### <a name="cfgs">Structure du fichier de configuration</a>
 Le fichier de configuration de `indird` est au format JSON. Au niveau principal, les membres de l'objet racine (anonyme) sont les différentes instances (au moins une) spécifiés dans le fichier par leur **\<flux>**. Chaque membre **\<flux>** est à son tour un objet JSON avec un certain nombre de membres obligatoires [o] et facultatifs [f] selon la liste suivante:
@@ -323,6 +348,7 @@ Est également disponible en open-source le package Javascript `yamljs` que l'on
 curl -sL https://deb.nodesource.com/setup_6.x | sudo bash -
 sudo npm install -g yamljs
 ```
+
 ## <a name="utils">Utilitaires</a>
 
 ### Commandes utilitaires du script `indird`
@@ -344,7 +370,7 @@ INDIRD_CONFIG=procom1.conf INDIRD_NLOCAL=y indird rdvradio check
 indird rdvradio cache chk
 ```
 
-### `yaml2json`
+### Utilitaire `yaml2json`
 `yaml2json` est un utilitaire Python permettant de convertir un fichier YAML en fichier JSON.
 
 Exemples d'utilisation :
@@ -354,7 +380,7 @@ yaml2json examples/indird.yml | jq .hosts.procom1.confs >indird.conf
 ```
 Les fichiers peuvent être des noms ou des *pipes* (stdin ou stdou)
 
-### `mkiconf`
+### Utilitaire `mkiconf`
 `mkiconf` est un petit utilitaire d'extraction de configuration, qui illustre l'utilisation de `yaml2json` ci-dessus. Il facilite la génération du fichier de configuration d'un *host*.
 
 Exemples d'utilisation :
@@ -363,8 +389,8 @@ mkiconf examples/indird.yml procom1 >procom1.conf
 mkiconf examples/indird.yml profnt2 >profnt2.conf
 ```
 
-### `ckiyaml`
-`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère pour chaque *host* un fichier de configuration temporaire dont chaque *\<flux>* est ensuite vérifié avec la commande `INDIRD_CONFIG=<config_temporaire> INDIRD_NLOCAL=y indird <flux> check`
+### Utilitaire `ckiyaml`
+`ckiyaml` est un petit utilitaire de vérification de fichier YAML global (multi-host), qui illustre également l'utilisation de `yaml2json`, ce dernier assurant, avec la conversion en JSON, la vérification de la syntaxe YAML. Il nécessite aussi `indird` pour la vérification de la cohérence de sa configuration. La commande génère en mémoire pour chaque *host* la configuration dont chaque *\<flux>* est ensuite vérifié par son *tag* avec la commande `jq ".$tag" | INDIRD_CONFIG=- indird <flux> nlcheck`
 
 Exemple d'utilisation :
 ```
