@@ -40,10 +40,10 @@ Par exemple, pour un flux nommé `rdvradio` :
 ```console
 indird rdvradio split
 ```
-Si le fichier `/etc/indird.d/rdvradios/config.json` existe déjà avant le lancement de la commande `split`, trois cas peuvent se produire :
-* il n'y a pas (ou plus) dans `/etc/indird.conf` de membre concernant le flux : cela est signalé et un code d'erreur spécifique 8 (ExNoAllCfg) est retourné
-* il y a dans `/etc/indird.conf` un membre strictement identique à celui de `/etc/indird.d/rdvradios/config.json` : cela est également signalé avec un code d'erreur 9 (ExCfgEql)
-* dans le dernier cas, la différence entre le membre dans `/etc/indird.conf` et celui dans `/etc/indird.d/rdvradios/config.json` est affichée avec un code d'erreur 10 (ExCfgDif)
+Si le fichier `/etc/indird.d/rdvradio/config.json` existe déjà avant le lancement de la commande `split`, trois cas peuvent se produire :
+* il n'y a pas (ou plus) dans `/etc/indird.conf` de membre concernant le flux : cela est signalé et un code d'erreur spécifique 8 (`ExNoAllCfg`) est retourné
+* il y a dans `/etc/indird.conf` un membre strictement identique à celui de `/etc/indird.d/rdvradio/config.json` : cela est également signalé avec un code d'erreur 9 (`ExCfgEql`)
+* dans le dernier cas, la différence entre le membre dans `/etc/indird.conf` et celui dans `/etc/indird.d/rdvradio/config.json` est affichée avec un code d'erreur 10 (`ExCfgDif`)
 
 ### <a name="cfgc">Gestion d'un cache du fichier de configuration
 
@@ -238,7 +238,8 @@ Le script `indird/indird` reconnait et utilise **pour certaines commandes** les 
 
 Enfin une variable `IndPfx` est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des trois variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
 
-Il est **IMPORTANT** de noter que ces variables ne sont **PAS** prises en compte dans le fonctionnement du script `indird` comme service (`daemon`).
+Il est **IMPORTANT** de noter que ces variables ne sont **PAS** prises en compte dans le fonctionnement du script `indird` comme service (`daemon`) du fait de la difficulté à modifier optionnellement l'environnement d'un service `systemd`.
+Il reste toujours possible cependant de transformer le fichier `/etc/indird.conf` et/ou le répertoire `/etc/indird.d` en liens symboliques qui seront traités exactement comme si leur cibles étaient dans `/etc`.
 
 ## <a name="cfgf">Fichier de configuration</a>
 
