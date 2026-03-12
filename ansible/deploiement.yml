@@ -99,10 +99,11 @@
     - name: dépot sonde norme
       tags: ['scripts']
       copy: 
-        src: "files/normed_indird.sh"
-        dest: "{{ bindir }}/norme.d/indird.sh"
+        src: "files/normed_{{ item }}"
+        dest: "{{ bindir }}/norme.d/{{ item }}"
         mode: 0755
       become: True
+      with_items: ['indird.sh', 'indird_broken_in.sh']
 
     - name: dépot sonde state
       tags: ['scripts']
