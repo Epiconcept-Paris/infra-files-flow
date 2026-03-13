@@ -135,7 +135,7 @@ Ont ainsi été ajoutées à `indirdctl` les commandes suivantes :
   * `prt` (print)
 * `split`
 
-Ainsi que les commandes d'administration (n'appeland pas le script `indird`):
+ainsi que des commandes d'administration n'appelant pas le script `indird` :
 * `paths`
 * `stat`
 * `inst` ou `install`
@@ -257,7 +257,7 @@ Le script `indird/indird` reconnait et utilise **pour certaines commandes** les 
 
 Enfin une variable `IndPfx` est également reconnue (dérivée par défaut du `basename` du script `indird` lui-même), qui permet de modifier le préfixe `INDIRD_` dans tout le script `indird`, c'est à dire aussi bien le nom des trois variables ci-dessus que la valeur par défaut du paramètre `env_prefix`.
 
-Il est **IMPORTANT** de noter que ces variables ne sont **PAS** prises en compte dans le fonctionnement du script `indird` comme service (`daemon`) du fait de la difficulté à modifier optionnellement l'environnement d'un service `systemd`.
+Il est **IMPORTANT** de noter que ces variables ne sont **PAS** prises en compte dans le fonctionnement du script `indird` comme service (`daemon`) du fait de la difficulté à modifier optionnellement l'environnement d'un service `systemd`.  
 Il reste toujours possible cependant de transformer le fichier `/etc/indird.conf` et/ou le répertoire `/etc/indird.d` en liens symboliques qui seront traités exactement comme si leur cibles étaient dans `/etc`.
 
 ## <a name="cfgf">Fichier de configuration</a>
@@ -390,12 +390,12 @@ sudo npm install -g yamljs
 
 ### <a name="iutil">Commandes utilitaires du script `indird`</a>
 `indird` dispose d'options destinées à être utilisées en ligne de commande après le **tag** (nom du flux) :
-  - `config` - affiche sans vérification la configuration pour un `<flux>` donné, sous une forme analogue à celle des *MIB SNMP* (par exemple : `filetypes.hl7.method="fileglob"`)
-  - `check` - vérifie la cohérence de la configuration entre ses différents objets, ainsi que l'existence ou la conformité des éléments *externes* à cette configuration : les chemins (`path`, `shell`) et le `host`
-  - `nlcheck` - 
-  - `split` - génère le fichier `/etc/indird.d/<flux>/config.json` qui doit préalablement ne pas exister.
+  * `config` - affiche sans vérification la configuration pour un `<flux>` donné, sous une forme analogue à celle des *MIB SNMP* (par exemple : `filetypes.hl7.method="fileglob"`)
+  * `check` - vérifie la cohérence de la configuration entre ses différents objets, ainsi que l'existence ou la conformité des éléments *externes* à cette configuration : les chemins (`path`, `shell`) et le `host`
+  * `nlcheck` - vérifie uniquement la cohérence de la configuration entre ses différents objets, sans prendre en compte les éléments *externes*
+  * `split` - génère le fichier `/etc/indird.d/<flux>/config.json` qui doit préalablement ne pas exister.
     Le fichier `/etc/indird.d/<flux>/cache.bash` est également généré
-  - `cache` - gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<flux>/cache.bash`, respectivement avec les sous-commandes :
+  * `cache` - gère la génération, la suppression, la vérification et l'affichage formatté du fichier de cache `/etc/indird.d/<flux>/cache.bash`, respectivement avec les sous-commandes :
     - `gen` pour la génération
     - `del` pour la suppression
     - `chk` pour la vérification
