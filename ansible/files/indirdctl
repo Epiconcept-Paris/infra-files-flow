@@ -6,23 +6,37 @@
 # - extraire les dossiers fail et montrer les fichiers qui s'y trouvent (et doivent être re-traités)
 # - surveillance des logs, à définir
 #
+# shellcheck disable=SC2016     # Expressions don't expand in single quotes
+# shellcheck disable=SC2086     # Double quote to prevent word splitting
+#
 Prg=$(basename "$0")
 BinDir=$(dirname "$0")
 Name="${Prg%ctl}"
+Wake="${Name}wake"
 Indird="$BinDir/$Name"
 IndPfx="$(tr '[:lower:]' '[:upper:]' <<< "$Name")_"	# Derive prefix from $Name
+Config='' CfgDir=''
 eval "Config=\${${IndPfx}CONFIG:-/etc/\$Name.conf}"	# Derive default file from $IndPfx/$Name
 eval "CfgDir=\${${IndPfx}CFGDIR:-/etc/\$Name.d}"	# Derive default cfgdir from $IndPfx/$Name
 ConfJS='config.json'
-tty <&1 >/dev/null && { Bold=$(tput bold); Norm=$(tput sgr0); }
+if tty <&1 >/dev/null; then
+    Bold=$(tput bold)
+    Norm=$(tput sgr0)
+    Red=$(tput setaf 1)
+    Grn=$(tput setaf 2)
+    Std=$(tput setaf 7)
+fi
 
 Bold() { echo "$Bold$1$Norm"; }
 
 Usage()
 {
-    echo "Usage: $Prg [ status | start | stop | restart | reload | resetlog | ps ]"
-    echo "       $Prg [ ls | paths | chk | nlchk | cache | split | check | debug ]"
-    echo "       $Prg cache [ gen | del | chk | prt ]"
+    cat >&2 <<-EOF
+	Usage: $Prg [ status | start | stop | restart | reload | resetlog | ps ]
+	       $Prg [ ls | chk | nlchk | cache <sub> | split | check | debug | paths ]
+	       $Prg [ stat [ <filter> ] | inst(all) [ sync ] | uninst(all) [ all ] ]
+	       $Prg cache [ gen | del | chk | prt ]
+EOF
 }
 
 #   Paths command
@@ -77,7 +91,7 @@ Check()
 
     test "$List" || return 0
     test "$List" = 'null' && return
-    for stype in "$Name" "${Name}wake"; do
+    for stype in "$Name" "$Wake"; do
 	srvs=$(systemctl list-units --all | grep -v masked | grep "$stype@")
 	for i in $List; do
 	    srv="$stype@$i.service"
@@ -118,6 +132,90 @@ Debug()
     done
 }
 
+#   Stat command
+Stat()
+{
+    #global Name
+    local s2u u2s act ina sel flt res match
+
+    s2u='s/InDirD ([^ ]+) path ([^ ]+)$/InDirD_\1_path_\2/'
+    u2s='s/InDirD_([^_]+)_path_([^_]+)$/InDirD \1 path \2/'
+    act="s/ active / ${Grn}active$Std /"
+    ina="s/ inactive / ${Red}inactive$Std /"
+    sel='' flt='' match=''
+    if [ "$1" = '-a' ]; then	# All $Name units
+	sel="$Name"
+    elif [ "$1" ]; then		# Units matching "$1"
+	flt="[^.]*$1[^.]*"
+	match="$1"
+    else			# All 'standard' $Name units
+	flt='[^.]+'
+    fi
+    test "$sel" = "$Name" || sel="$Name@$flt\.service|$Wake@$flt\.path"
+    res=$(systemctl list-units --all | sed -nr "1p; $s2u; /$sel/p")
+    if [ "$(<<<"$res" wc -l)" -gt 1 ]; then
+	<<<"$res" column -t | sed -r "$u2s; $act; $ina"
+    elif [ "$match" ]; then
+	echo "$Prg: no $Name unit matches '$match'" >&2
+	exit 1
+    fi
+}
+
+#   Remove instance $1
+Drop()
+{
+    #global Name Wake
+
+    systemctl --quiet is-active  "$Name@$1"      && sudo systemctl stop    "$Name@$1"
+    systemctl --quiet is-enabled "$Wake@$1.path" && sudo systemctl disable "$Wake@$1.path"
+    systemctl --quiet is-enabled "$Name@$1"      && sudo systemctl disable "$Name@$1.service"
+}
+
+#   Return all $Name services declared to systemd
+Srvs()
+{
+    #global Name
+
+    systemctl list-units --all | sed -nr "/$Name@/s/^ *$Name@([^.]+)\.service +.*$/\1/p"
+}
+
+#   Inst command
+Install()
+{
+    #global List Name Wake
+    local tag
+
+    for tag in $List; do
+	systemctl --quiet is-enabled "$Name@$tag"      || sudo systemctl enable "$Name@$tag.service"
+	systemctl --quiet is-enabled "$Wake@$tag.path" || sudo systemctl enable "$Wake@$tag.path"
+	systemctl --quiet is-active  "$Name@$tag"      || sudo systemctl start  "$Name@$tag"
+    done
+    if [ "$1" = 'sync' ]; then
+	for tag in $(Srvs); do
+	    <<<"$List" grep -q "^$tag\$" || Drop "$tag"
+	done
+    fi
+}
+
+#   Drop command
+Remove()
+{
+    #global List
+    local tag
+
+    for tag in $List; do
+	Drop "$tag"
+    done
+    if [ "$1" = 'all' ]; then
+	for tag in $(Srvs); do
+	    Drop "$tag"
+	done
+    fi
+    for tag in "$Name" "$Wake"; do
+	systemctl --quiet is-active "system-$tag.slice" && sudo systemctl stop "system-$tag.slice"
+    done
+}
+
 #
 #   Main
 #
@@ -135,7 +233,7 @@ ExNoAllCfg=8
 ExCfgEql=9
 ExCfgDif=10
 # Get exit codes from the $Name script
-eval $(grep '^Ex' "$Indird")
+eval "$(grep '^Ex' "$Indird")"
 
 # Global config file (may not exist)
 [[ -f "$Config" ]] && Cfg="$Config" || Cfg=''
@@ -168,7 +266,7 @@ fi
 
 #   Run command $1
 case $1 in
-    stat|status) for i in $List; do systemctl status "$Name@$i"; done ;;
+    status)	for i in $List; do systemctl status "$Name@$i"; done ;;
     start|stop|restart|reload)
 		for i in $List; do Bold "$i"; sudo systemctl "$1" "$Name@$i"; done ;;
     resetlog)	for i in $List; do Bold "$i"; sudo systemctl kill --signal=HUP "$Name@$i"; done ;;
@@ -180,9 +278,12 @@ case $1 in
     chk)	for i in $List; do "$Indird" "$i" check; done ;;
     nlchk)	for i in $List; do "$Indird" "$i" nlcheck; done ;;
     cache)	for i in $List; do $Su "$Indird" "$i" cache "$2"; done ;;
-    paths)	shift; Paths "$@" ;;
     split)	Split ;;
     check)	Check ;;
     debug)	Debug ;;
+    paths)	shift; Paths "$@" ;;
+    stat)	shift; Stat "$@" ;;
+    inst|install)		shift; Install "$@" ;;
+    rm|remove|uninst|uninstall)	shift; Remove "$@" ;;
     *)		test "$1" = 'nlcheck' && echo "Did you mean: $Prg nlchk ?" >&2; Usage ;;
 esac
