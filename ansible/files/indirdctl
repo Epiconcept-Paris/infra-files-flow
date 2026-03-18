@@ -34,7 +34,7 @@ Usage()
     cat >&2 <<-EOF
 	Usage: $Prg [ status | start | stop | restart | reload | resetlog | ps ]
 	       $Prg [ ls | chk | nlchk | cache <sub> | split | check | debug | paths ]
-	       $Prg [ stat [ <filter> ] | inst(all) [ sync ] | uninst(all) [ all ] ]
+	       $Prg [ stat [ <filter> | -a ] | inst(all) [ sync ] | uninst(all) [ all ] ]
 	       $Prg cache [ gen | del | chk | prt ]
 EOF
 }
