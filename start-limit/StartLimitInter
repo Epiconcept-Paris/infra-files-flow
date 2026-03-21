@@ -1,109 +1,109 @@
-systemd-232/man/systemd-system.conf.xml:        <varname>StartLimitIntervalSec=</varname> and
-systemd-232/man/systemd.unit.xml:        <term><varname>StartLimitIntervalSec=</varname></term>
-systemd-232/man/systemd.unit.xml:        options, this rate limiting may be modified. Use <varname>StartLimitIntervalSec=</varname> to configure the
-systemd-232/man/systemd.unit.xml:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes one of
-systemd-232/src/core/dbus-service.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-232/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-systemd-232/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-232/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-232/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-232/src/core/load-fragment-gperf.gperf.m4:Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-241/docs/TRANSIENT-SETTINGS.md:✓ StartLimitIntervalSec=SECONDS
-systemd-241/man/systemctl.xml:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
-systemd-241/man/systemd.exec.xml:                <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
-systemd-241/man/systemd.service.xml:        limiting configured with <varname>StartLimitIntervalSec=</varname>
-systemd-241/man/systemd-system.conf.xml:        <varname>StartLimitIntervalSec=</varname> and
-systemd-241/man/systemd.unit.xml:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
-systemd-241/man/systemd.unit.xml:        permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the checking interval
-systemd-241/man/systemd.unit.xml:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit.  Takes the same
-systemd-241/NEWS:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
-systemd-241/src/core/dbus-service.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-241/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-systemd-241/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-241/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-241/src/core/dbus-unit.c:        if (streq(name, "StartLimitIntervalUSec"))
-systemd-241/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-241/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-241/src/core/load-fragment-gperf.gperf.m4:Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
-systemd-241/src/shared/bus-unit-util.c:        if (STR_IN_SET(field, "JobTimeoutSec", "JobRunningTimeoutSec", "StartLimitIntervalSec"))
-systemd-257.9/docs/TRANSIENT-SETTINGS.md:✓ StartLimitIntervalSec=
-systemd-257.9/man/org.freedesktop.systemd1.xml:      readonly t StartLimitIntervalUSec = ...;
-systemd-257.9/man/org.freedesktop.systemd1.xml:    <!--property StartLimitIntervalUSec is not documented!-->
-systemd-257.9/man/org.freedesktop.systemd1.xml:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
-systemd-257.9/man/org.freedesktop.systemd1.xml:      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
-systemd-257.9/man/systemctl.xml:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
-systemd-257.9/man/systemd.exec.xml:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
-systemd-257.9/man/systemd.path.xml:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
-systemd-257.9/man/systemd.service.xml:        limiting configured with <varname>StartLimitIntervalSec=</varname>
-systemd-257.9/man/systemd-system.conf.xml:        <varname>StartLimitIntervalSec=</varname> and
-systemd-257.9/man/systemd.unit.xml:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
-systemd-257.9/man/systemd.unit.xml:        not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
-systemd-257.9/man/systemd.unit.xml:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
-systemd-257.9/NEWS:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
-systemd-257.9/src/core/dbus-service.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-257.9/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-systemd-257.9/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-257.9/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-257.9/src/core/dbus-unit.c:        if (streq(name, "StartLimitIntervalUSec"))
-systemd-257.9/src/core/load-fragment-gperf.gperf.in:Unit.StartLimitIntervalSec,                   config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-257.9/src/core/load-fragment-gperf.gperf.in:Unit.StartLimitInterval,                      config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-257.9/src/core/load-fragment-gperf.gperf.in:Service.StartLimitInterval,                   config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-257.9/src/shared/bus-unit-util.c:                              "StartLimitIntervalSec"))
-systemd-257.9/test/test-network/systemd-networkd-tests.py:                           'StartLimitIntervalSec=0'])
-systemd-257.9/test/test-network/systemd-networkd-tests.py:            'StartLimitIntervalSec=0',
-systemd-257.9/test/test-network/systemd-networkd-tests.py:            'StartLimitIntervalSec=0',
-systemd-257.9/test/units/TEST-23-UNIT-FILE.oneshot-restart.sh:        -p StartLimitIntervalSec=120 \
-systemd-257.9/test/units/TEST-87-AUX-UTILS-VM.pstore.sh:    rm -f /run/systemd/system/systemd-pstore.service.d/99-StartLimitInterval.conf
-systemd-257.9/test/units/TEST-87-AUX-UTILS-VM.pstore.sh:cat >/run/systemd/system/systemd-pstore.service.d/99-StartLimitInterval.conf <<EOF
-systemd-257.9/tools/dbus_ignorelist:org.freedesktop.systemd1.Unit.StartLimitIntervalUSec
-systemd-stable-247.3/docs/TRANSIENT-SETTINGS.md:✓ StartLimitIntervalSec=
-systemd-stable-247.3/man/org.freedesktop.systemd1.xml:      readonly t StartLimitIntervalUSec = ...;
-systemd-stable-247.3/man/org.freedesktop.systemd1.xml:    <!--property StartLimitIntervalUSec is not documented!-->
-systemd-stable-247.3/man/org.freedesktop.systemd1.xml:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
-systemd-stable-247.3/man/org.freedesktop.systemd1.xml:      in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
-systemd-stable-247.3/man/systemctl.xml:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
-systemd-stable-247.3/man/systemd.exec.xml:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
-systemd-stable-247.3/man/systemd.path.xml:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
-systemd-stable-247.3/man/systemd.service.xml:        limiting configured with <varname>StartLimitIntervalSec=</varname>
-systemd-stable-247.3/man/systemd-system.conf.xml:        <varname>StartLimitIntervalSec=</varname> and
-systemd-stable-247.3/man/systemd.unit.xml:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
-systemd-stable-247.3/man/systemd.unit.xml:        permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the checking interval
-systemd-stable-247.3/man/systemd.unit.xml:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
-systemd-stable-247.3/NEWS:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
-systemd-stable-247.3/src/core/dbus-service.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-247.3/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-systemd-stable-247.3/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-247.3/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-247.3/src/core/dbus-unit.c:        if (streq(name, "StartLimitIntervalUSec"))
-systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitIntervalSec,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:Unit.StartLimitInterval,                 config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-247.3/src/shared/bus-unit-util.c:                              "StartLimitIntervalSec"))
-systemd-stable-247.3/test/test-network/systemd-networkd-tests.py:        'StartLimitIntervalSec=0',
-systemd-stable-247.3/test/units/testsuite-41.sh:! systemd-run --unit=two -p StartLimitIntervalSec=120 -p StartLimitBurst=3 -p Type=oneshot -p Restart=on-failure -p ExecStart="/bin/bash -c \"printf a >>  $TMP_FILE\"" /bin/bash -c "exit 1"
-systemd-stable-252.39/docs/TRANSIENT-SETTINGS.md:✓ StartLimitIntervalSec=
-systemd-stable-252.39/man/org.freedesktop.systemd1.xml:      readonly t StartLimitIntervalUSec = ...;
-systemd-stable-252.39/man/org.freedesktop.systemd1.xml:    <!--property StartLimitIntervalUSec is not documented!-->
-systemd-stable-252.39/man/org.freedesktop.systemd1.xml:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
-systemd-stable-252.39/man/org.freedesktop.systemd1.xml:      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
-systemd-stable-252.39/man/systemctl.xml:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
-systemd-stable-252.39/man/systemd.exec.xml:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
-systemd-stable-252.39/man/systemd.path.xml:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
-systemd-stable-252.39/man/systemd.service.xml:        limiting configured with <varname>StartLimitIntervalSec=</varname>
-systemd-stable-252.39/man/systemd-system.conf.xml:        <varname>StartLimitIntervalSec=</varname> and
-systemd-stable-252.39/man/systemd.unit.xml:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
-systemd-stable-252.39/man/systemd.unit.xml:        not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
-systemd-stable-252.39/man/systemd.unit.xml:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
-systemd-stable-252.39/NEWS:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
-systemd-stable-252.39/src/core/dbus-service.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-252.39/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
-systemd-stable-252.39/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-252.39/src/core/dbus-unit.c:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
-systemd-stable-252.39/src/core/dbus-unit.c:        if (streq(name, "StartLimitIntervalUSec"))
-systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:Unit.StartLimitIntervalSec,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:Unit.StartLimitInterval,                 config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
-systemd-stable-252.39/src/shared/bus-unit-util.c:                              "StartLimitIntervalSec"))
-systemd-stable-252.39/test/test-network/systemd-networkd-tests.py:                          ['[Service]', 'Restart=no', '[Unit]', 'StartLimitIntervalSec=0'])
-systemd-stable-252.39/test/test-network/systemd-networkd-tests.py:            'StartLimitIntervalSec=0',
-systemd-stable-252.39/test/units/testsuite-41.sh:            -p StartLimitIntervalSec=120 \
+systemd-232/man/systemd-system.conf.xml:291:        <varname>StartLimitIntervalSec=</varname> and
+systemd-232/man/systemd.unit.xml:762:        <term><varname>StartLimitIntervalSec=</varname></term>
+systemd-232/man/systemd.unit.xml:767:        options, this rate limiting may be modified. Use <varname>StartLimitIntervalSec=</varname> to configure the
+systemd-232/man/systemd.unit.xml:790:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes one of
+systemd-232/src/core/dbus-service.c:80:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-232/src/core/dbus-unit.c:761:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-232/src/core/dbus-unit.c:785:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-232/src/core/load-fragment-gperf.gperf.m4:193:Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-232/src/core/load-fragment-gperf.gperf.m4:195:Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-232/src/core/load-fragment-gperf.gperf.m4:252:Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-241/docs/TRANSIENT-SETTINGS.md:47:✓ StartLimitIntervalSec=SECONDS
+systemd-241/man/systemctl.xml:1069:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+systemd-241/man/systemd.exec.xml:2352:                <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
+systemd-241/man/systemd.service.xml:763:        limiting configured with <varname>StartLimitIntervalSec=</varname>
+systemd-241/man/systemd-system.conf.xml:271:        <varname>StartLimitIntervalSec=</varname> and
+systemd-241/man/systemd.unit.xml:943:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
+systemd-241/man/systemd.unit.xml:948:        permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the checking interval
+systemd-241/man/systemd.unit.xml:975:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit.  Takes the same
+systemd-241/NEWS:3443:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+systemd-241/src/core/dbus-service.c:138:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:670:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-241/src/core/dbus-unit.c:701:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:702:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:1570:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-241/src/core/load-fragment-gperf.gperf.m4:236:Unit.StartLimitIntervalSec,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-241/src/core/load-fragment-gperf.gperf.m4:238:Unit.StartLimitInterval,         config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-241/src/core/load-fragment-gperf.gperf.m4:308:Service.StartLimitInterval,      config_parse_sec,                   0,                             offsetof(Unit, start_limit.interval)
+systemd-241/src/shared/bus-unit-util.c:1553:        if (STR_IN_SET(field, "JobTimeoutSec", "JobRunningTimeoutSec", "StartLimitIntervalSec"))
+systemd-257.9/docs/TRANSIENT-SETTINGS.md:51:✓ StartLimitIntervalSec=
+systemd-257.9/man/org.freedesktop.systemd1.xml:2115:      readonly t StartLimitIntervalUSec = ...;
+systemd-257.9/man/org.freedesktop.systemd1.xml:2223:    <!--property StartLimitIntervalUSec is not documented!-->
+systemd-257.9/man/org.freedesktop.systemd1.xml:2461:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
+systemd-257.9/man/org.freedesktop.systemd1.xml:4822:      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
+systemd-257.9/man/systemctl.xml:840:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+systemd-257.9/man/systemd.exec.xml:4040:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
+systemd-257.9/man/systemd.path.xml:59:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
+systemd-257.9/man/systemd.service.xml:917:        limiting configured with <varname>StartLimitIntervalSec=</varname>
+systemd-257.9/man/systemd-system.conf.xml:604:        <varname>StartLimitIntervalSec=</varname> and
+systemd-257.9/man/systemd.unit.xml:1177:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
+systemd-257.9/man/systemd.unit.xml:1182:        not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
+systemd-257.9/man/systemd.unit.xml:1224:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
+systemd-257.9/NEWS:13169:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+systemd-257.9/src/core/dbus-service.c:408:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:929:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-257.9/src/core/dbus-unit.c:1035:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:1036:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:2260:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-257.9/src/core/load-fragment-gperf.gperf.in:334:Unit.StartLimitIntervalSec,                   config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-257.9/src/core/load-fragment-gperf.gperf.in:336:Unit.StartLimitInterval,                      config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-257.9/src/core/load-fragment-gperf.gperf.in:431:Service.StartLimitInterval,                   config_parse_sec,                                   0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-257.9/src/shared/bus-unit-util.c:2698:                              "StartLimitIntervalSec"))
+systemd-257.9/test/test-network/systemd-networkd-tests.py:516:                           'StartLimitIntervalSec=0'])
+systemd-257.9/test/test-network/systemd-networkd-tests.py:533:            'StartLimitIntervalSec=0',
+systemd-257.9/test/test-network/systemd-networkd-tests.py:540:            'StartLimitIntervalSec=0',
+systemd-257.9/test/units/TEST-23-UNIT-FILE.oneshot-restart.sh:34:        -p StartLimitIntervalSec=120 \
+systemd-257.9/test/units/TEST-87-AUX-UTILS-VM.pstore.sh:130:    rm -f /run/systemd/system/systemd-pstore.service.d/99-StartLimitInterval.conf
+systemd-257.9/test/units/TEST-87-AUX-UTILS-VM.pstore.sh:144:cat >/run/systemd/system/systemd-pstore.service.d/99-StartLimitInterval.conf <<EOF
+systemd-257.9/tools/dbus_ignorelist:2144:org.freedesktop.systemd1.Unit.StartLimitIntervalUSec
+systemd-stable-247.3/docs/TRANSIENT-SETTINGS.md:49:✓ StartLimitIntervalSec=
+systemd-stable-247.3/man/org.freedesktop.systemd1.xml:1692:      readonly t StartLimitIntervalUSec = ...;
+systemd-stable-247.3/man/org.freedesktop.systemd1.xml:1773:    <!--property StartLimitIntervalUSec is not documented!-->
+systemd-stable-247.3/man/org.freedesktop.systemd1.xml:1981:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
+systemd-stable-247.3/man/org.freedesktop.systemd1.xml:3893:      in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
+systemd-stable-247.3/man/systemctl.xml:622:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+systemd-stable-247.3/man/systemd.exec.xml:3090:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
+systemd-stable-247.3/man/systemd.path.xml:59:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
+systemd-stable-247.3/man/systemd.service.xml:864:        limiting configured with <varname>StartLimitIntervalSec=</varname>
+systemd-stable-247.3/man/systemd-system.conf.xml:312:        <varname>StartLimitIntervalSec=</varname> and
+systemd-stable-247.3/man/systemd.unit.xml:1006:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
+systemd-stable-247.3/man/systemd.unit.xml:1011:        permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the checking interval
+systemd-stable-247.3/man/systemd.unit.xml:1038:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
+systemd-stable-247.3/NEWS:6051:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+systemd-stable-247.3/src/core/dbus-service.c:150:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:912:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-stable-247.3/src/core/dbus-unit.c:1038:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:1039:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:2071:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:267:Unit.StartLimitIntervalSec,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:269:Unit.StartLimitInterval,                 config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-247.3/src/core/load-fragment-gperf.gperf.m4:349:Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-247.3/src/shared/bus-unit-util.c:2147:                              "StartLimitIntervalSec"))
+systemd-stable-247.3/test/test-network/systemd-networkd-tests.py:280:        'StartLimitIntervalSec=0',
+systemd-stable-247.3/test/units/testsuite-41.sh:28:! systemd-run --unit=two -p StartLimitIntervalSec=120 -p StartLimitBurst=3 -p Type=oneshot -p Restart=on-failure -p ExecStart="/bin/bash -c \"printf a >>  $TMP_FILE\"" /bin/bash -c "exit 1"
+systemd-stable-252.39/docs/TRANSIENT-SETTINGS.md:51:✓ StartLimitIntervalSec=
+systemd-stable-252.39/man/org.freedesktop.systemd1.xml:1931:      readonly t StartLimitIntervalUSec = ...;
+systemd-stable-252.39/man/org.freedesktop.systemd1.xml:2031:    <!--property StartLimitIntervalUSec is not documented!-->
+systemd-stable-252.39/man/org.freedesktop.systemd1.xml:2261:    <variablelist class="dbus-property" generated="True" extra-ref="StartLimitIntervalUSec"/>
+systemd-stable-252.39/man/org.freedesktop.systemd1.xml:4332:      frequently in a specific time frame (as configured in <varname>StartLimitInterval</varname>,
+systemd-stable-252.39/man/systemctl.xml:713:            <varname>StartLimitIntervalSec=</varname>/<varname>StartLimitBurst=</varname>) is hit and the unit refuses
+systemd-stable-252.39/man/systemd.exec.xml:3565:                  <entry>A start limit was defined for the unit and it was hit, causing the unit to fail to start. See <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> for details.</entry>
+systemd-stable-252.39/man/systemd.path.xml:59:    on the service unit, see <varname>StartLimitIntervalSec=</varname> and
+systemd-stable-252.39/man/systemd.service.xml:886:        limiting configured with <varname>StartLimitIntervalSec=</varname>
+systemd-stable-252.39/man/systemd-system.conf.xml:390:        <varname>StartLimitIntervalSec=</varname> and
+systemd-stable-252.39/man/systemd.unit.xml:1077:        <term><varname>StartLimitIntervalSec=<replaceable>interval</replaceable></varname></term>
+systemd-stable-252.39/man/systemd.unit.xml:1082:        not permitted to start any more. Use <varname>StartLimitIntervalSec=</varname> to configure the
+systemd-stable-252.39/man/systemd.unit.xml:1120:        <varname>StartLimitIntervalSec=</varname> and <varname>StartLimitBurst=</varname> is hit. Takes the same
+systemd-stable-252.39/NEWS:9172:        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+systemd-stable-252.39/src/core/dbus-service.c:284:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:929:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-stable-252.39/src/core/dbus-unit.c:1029:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:1030:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:2164:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:307:Unit.StartLimitIntervalSec,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:309:Unit.StartLimitInterval,                 config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-252.39/src/core/load-fragment-gperf.gperf.in:402:Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)
+systemd-stable-252.39/src/shared/bus-unit-util.c:2470:                              "StartLimitIntervalSec"))
+systemd-stable-252.39/test/test-network/systemd-networkd-tests.py:744:                          ['[Service]', 'Restart=no', '[Unit]', 'StartLimitIntervalSec=0'])
+systemd-stable-252.39/test/test-network/systemd-networkd-tests.py:765:            'StartLimitIntervalSec=0',
+systemd-stable-252.39/test/units/testsuite-41.sh:29:            -p StartLimitIntervalSec=120 \
