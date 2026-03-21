@@ -1,5 +1,7 @@
 # Erreurs de StartLimit avec indirdwake
 
+([English version](#en))
+
 ## Découverte
 
 Début 2023, grace au déploiement de `grafana`, des messages répétés du type  
@@ -11,15 +13,15 @@ ont été remarqués dans `/var/log/daemon.log` sur un système Debian 9 avec be
 Il a été rapidement déterminé que les messages montraient la nécessité d'un paramètre `StartLimitInterval*` de `systemd`.  
 Tout d'abord, un paramètre `StartLimitIntervalSec=0` a été ajouté à `indirdwake@.path`. Il était reconnu (pas d'erreur) mais n'avait aucun effet notable.  
 Ensuite, ce paramètre a été déplacé dans `indirdwake@.service` où `systemd-analyze verify indirdwake@.service` l'a immédiatement détecté comme invalide.  
-Enfin, la poursuite des recherches a conduit à la découverte d'un paramètre `SmartLimitInterval=` sur les différentes releases de `systemd` des versions Debian 9 à 13.
+Enfin, la poursuite des recherches a conduit à la découverte d'un paramètre `SmartLimitInterval=` sur les différentes releases de `systemd` de toutes les versions de Linux Debian prises en charge (9 à 13 en 2026).
 Des tests sur la version 232 de `systemd` sur Debian 9 ont montré que ce paramètre était non seulement reconnu dans `indirdwake@.service`, mais aussi **fonctionnait** comme attendu.
 C'est donc ce paramètre, fonctionnant avec toutes les versions de Linux Debian prises en charge, dont l'usage a été retenu, bien qu'il ne soit pas officiellement documenté.
 
 ## Vérification de `SmartLimitInterval` dans le code source de systemd
 
-La dernière version de `systemd` pour les différentes versions de Debian Linux (`[+~]deb[0-9]+`), avec la dernière mise à jour correspondante pour Debian (`u[0-9]+`), se trouve dans le fichier `systemd-release`.  
-Le processus de fetch, untar et grep a été consigné dans le script `check-systemd-sources`, produisant le fichier `StartLimitInter` des occurences dans les sources de la chaîne `StartLimitInter`.  
-Comme le montre ce fichier `StartLimitInter`, un commentaire mentionnant le paramètre `SmartLimitInterval=` a été ajouté à la version **229** dans tous les fichiers `work/systemd-*/NEWS` **après la version 232** de `systemd` (la version pour Debian 9, pour laquelle la prise en compte du paramètre a été vérifiée), ce qui semble annoncer que le paramètre `StartLimitInterval` fonctionnera dans les versions Debian 9 à 13.
+La dernière version de `systemd` pour toutes les versions de Linux Debian (`[+~]deb[0-9]+`) prises en charge, jointe à la dernière mise à jour (`u[0-9]+`) correspondante des adaptations pour Linux Debian, se trouve dans le fichier `systemd-releases`.  
+Le processus de fetch, untar et grep a été consigné dans le script `check-systemd-sources`, générant le fichier `StartLimitInter` des occurences dans les sources de la chaîne `StartLimitInter`.  
+Comme le montre ce fichier `StartLimitInter`, un commentaire mentionnant le paramètre `SmartLimitInterval=` a été ajouté à la version **229** dans tous les fichiers `work/systemd-*/NEWS` **après la version 232** de `systemd` (la version pour Debian 9, pour laquelle la prise en compte du paramètre a été vérifiée).
 
 Voici le commentaire:
 ```
@@ -31,7 +33,12 @@ Voici le commentaire:
           maintain compatibility.
 ```
 
-# StartLimit errors with indirdwake
+Et la présence du paramètre `SmartLimitInterval` dans les fichiers C du répertoire `src/core/` (et `src/shared/)` de **toutes** les versions de Linux Debian prises en charge (comme le montre le fichier `StartLimitInter_C` également généré par le script `check-systemd-sources`) prouve le traitement effectif de ce paramètre.
+
+21-03-2026
+
+
+# <a name="en">StartLimit errors with indirdwake</a>
 
 ## Discovery
 
@@ -44,15 +51,15 @@ were noticed in `/var/log/daemon.log` on a Debian 9 system running many instance
 It was quickly determined that the messages were showing the need for a `SmartLimitInterval*` systemd setting.  
 At first, a `StartLimitIntervalSec=0` setting was added to `indirdwake@.path`. It was recognized (no error) but it had no noticeable effect.  
 Then this setting was moved to `indirdwake@.service` where `systemd-analyze verify indirdwake@.service` immediately detected it as invalid.  
-Finally, further research led to the discovery of a `SmartLimitInterval=` setting on the different `systemd` releases of Debian versions 9 to 13.
+Finally, further research led to the discovery of a `SmartLimitInterval=` setting on the different `systemd` releases of all the supported Debian Linux versions (9 to 13 in 2026).
 Tests on version 232 of `systemd` on Debian 9 showed that this setting was not only recognized in `indirdwake@.service`, but also **worked** as expected.
-So it was this setting, working with all the supported versions of Debian Linux, whose usage was chosen, in spite of the fact that it is not officially documented.
+So it was this setting, working with all the supported Debian Linux versions, whose usage was chosen, in spite of the fact that it is not officially documented.
 
 ## Check for `SmartLimitInterval` in systemd's source code
 
-The last version of `systemd` for the different versions of Debian Linux (`[+~]deb[0-9]+`), together with the corresponding last update for Debian (`u[0-9]+`), can be found in the `systemd-releases` file.  
-The fetch, untar and grep process was consigned in the `check-systemd-sources` script, producing the `StartLimitInter` file of occurences in the sources of the `StartLimitInter` string.  
-As this `StartLimitInter` file points out to, a comment mentionning the `StartLimitInterval=` setting has been added to version **229** in all the `work/systemd-*/NEWS` files **after version 232** of `systemd` (the version for Debian 9, for which the handling of the setting has been checked), which seems to announce that the `SmartLimitInterval` setting will work on Debian versions 9 to 13.
+The last version of `systemd` for all the supported Debian Linux versions (`[+~]deb[0-9]+`), together with the corresponding last update (`u[0-9]+`) of the patches for Debian Linux, can be found in the `systemd-releases` file.  
+The fetch, untar and grep process was consigned in the `check-systemd-sources` script, generating the `StartLimitInter` file of occurences in the sources of the `StartLimitInter` string.  
+As this `StartLimitInter` file points out to, a comment mentionning the `StartLimitInterval=` setting has been added to version **229** in all the `work/systemd-*/NEWS` files **after version 232** of `systemd` (the version for Debian 9, for which the handling of the setting has been checked).
 
 Here is the comment:
 ```
@@ -64,4 +71,6 @@ Here is the comment:
           maintain compatibility.
 ```
 
-2026-03-18
+And the presence of the `SmartLimitInterval` setting in the files of directory `src/core/` (and `src/shared/`) of **all** the supported versions of Debian Linux (as shown by the file `StartLimitInter_C`, also generated by the `check-systemd-sources` script) proves the effective handling of this parameter.
+
+2026-03-21
