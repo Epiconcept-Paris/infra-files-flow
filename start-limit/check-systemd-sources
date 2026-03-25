@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+#	check-systemd-sources - Check that StartLimitInterval is still valid
+#
+Prg=$(basename $0)
+cd $(dirname $0)
+
+rel='systemd-releases'
+test -s "$rel" || { echo "$Prg: cannot find the '$rel' file" >&2; exit 1; }
+<"$rel" awk 'NF != 6 {exit 1}' || { 
+    echo "$Prg: file '$rel' should have 6 columns: sdVer sdRel 'deb' debVer sdUpd debRel" >&2
+    exit 2
+}
+
+mkdir work 2>/dev/null || {
+    echo "$Prg: directory 'work' already exists. Remove or rename it to proceed..." >&2
+    exit 1
+}
+
+path='/pool/main/s/systemd'
+main='http://ftp.debian.org/debian'
+arch='http://archive.debian.org/debian'
+elts='http://deb.freexian.com/extended-lts'
+
+cd work
+
+get() { wget -q "$@"; }
+
+echo "Fetching systemd file-lists"
+get "$arch$path" -O arch.html
+get "$main$path" -O main.html
+get "$elts$path" -O elts.html
+
+echo "Fetching sources"
+while read -r sver srel deb dver upd drel; do
+    orig="systemd_$sver.orig.tar.gz"
+    eval "site=\$$(grep "$orig" *.html | sed -nr 's/^(....)\.html:.*$/\1/p' | sed -n 1p)"
+    get "$site$path/$orig"
+done <../$rel
+
+echo "Fetching Debian patches"
+while read -r sver srel deb dver upd drel; do
+    eval "$(grep -E "systemd_$sver-[0-9]+.*deb${dver}u[0-9]+.debian.tar.xz" *.html | sed -nr 's/^(....)\.html:.*href="([^"]+)".*$/site=$\1 orig=\2/p' | sort -tu -n -k2,2 | tail -1)"
+    get "$site$path/$orig"
+done <../$rel
+
+echo "Extracting sources & Debian patches"
+for v in $(awk -F'\t' '{print $1}' ../$rel)
+do
+    tar xf systemd_$v*.orig.tar.gz
+    cd systemd-*$v*
+    tar xf ../systemd_$v*.debian.tar.xz
+    cd ..
+done
+echo "Look for StartLimitInter"
+find systemd-* -type f -print0 | sort -z | xargs -0 grep '[^t]StartLimitInter' >../StartLimitInter

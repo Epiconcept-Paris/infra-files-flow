@@ -1,0 +1,57 @@
+#!/bin/bash
+#
+#	runtest - Run basic test
+#
+Prg=$(basename "$0")
+Dir=$(dirname "$0")
+
+Conf='conf/indird.conf'
+Data='data'
+Orig="$Data/orig"
+Recv="$Data/recv"
+
+#   Various checks
+while [ "$1" ]; do
+    [[ "$1" =~ rm|dry ]] || { echo "Usage: $Prg [ rm ] [ dry ]" >&2; exit 1; }
+    [ "$1" = 'rm' ] && rmOnly='y'
+    [ "$1" = 'dry' ] && Dry='y'
+    shift
+done
+test "$Dir" = '.' || { cd "$Dir"; echo "$Prg NOTICE: working from directory $PWD" >&2; }
+test -x 'dcp' || { echo "$Prg: cannot find the 'dcp' script in $PWD" >&2; exit 1; }
+test -f "$Conf" || { echo "$Prg: cannot find '$Conf' in $PWD" >&2; exit 2; }
+
+#   Get the existing stream tags
+Tags=$(<"$Conf" sed '/^#/d' | jq -cr 'keys_unsorted[]')
+test $? -eq 0 || { echo "$Prg: aborting as '$Conf' is not valid JSON" >&2; exit 3; }
+nbt=$(<<<"$Tags" wc -l)
+[[ "$Tags" = 'null' || "$Tags" = '' ]] && { echo "$Prg: no stream found in $Conf" >&2; exit 3; }
+if [ "$Dry" ]; then
+    echo "$nbt tags:" >&2
+    echo "$Tags" | sed 's/^/  /' >&2
+fi
+
+#   Remove old files if any
+for old in $Data/{done,glob}/* $Recv/*/* $Recv/*/.ok/* logs/*
+do
+    [[ $old =~ \* ]] && continue
+    test "$hdr" || { echo "Removing previous $Prg results:"; hdr='y'; }
+    if [ "$Dry" ]; then
+	echo "rm -fv \"$old\"" >&2
+    else
+	rm -fv "$old" | sed 's/^/  /'
+    fi
+done
+test "$rmOnly" && exit
+
+#   Run dcp on all $Orig files
+echo "Running tests: "
+for orig in $(ls -f $Orig | grep -v '^\.')	# Pseudo-random order of $Orig files
+do
+    tag=$(<<<"$Tags" sed -n "$(((RANDOM * nbt / 32768) + 1))p")
+    if [ "$Dry" ]; then
+	echo "  ./dcp $orig $tag" >&2
+    else
+	./dcp "$orig" "$tag"
+    fi
+done

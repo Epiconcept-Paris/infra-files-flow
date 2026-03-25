@@ -175,10 +175,10 @@ LogDbg()
     local debug
 
     debug=''
-    if [ -v Conf['path'] ]; then	# Config has been loaded
-	debug="${Conf['debug']}"
-    elif [ -f "$Debug" ]; then		# Per-tag debug file exists
+    if [ -f "$Debug" ]; then		# Per-tag debug file exists
 	debug='true'
+    elif [ -v Conf['path'] ]; then	# Config has been loaded
+	debug="${Conf['debug']}"
     fi
     #	As LogMsg below has no 2nd argument, it will NOT call logger
     #	  (it would do it if we pass the 'debug' log-level)
@@ -616,12 +616,12 @@ WakeupMain()
     eval "$(systemctl -p MainPID show $1)"
     if [ 0$MainPID -gt 0 ]; then
 	# ps -ef columns: 1:UID 2:PID 3:PPID 4:C 5:STIME 6:TTY 7:TIME 8:CMD 9:ARG
-	pid=$(ps -ef | awk "\$3==$MainPID && \$8==\"sleep\" && \$9!=\"$wDelay\" {print \$2}")
+	pid=$(ps -ef | awk "\$3 == $MainPID && \$8 == \"sleep\" && \$9 != \"$wDelay\" {print \$2}")
 	if [ "$pid" ]; then
-	    LogDbg "Waking up $1 (Main PID=$MainPID, sleep PID=$pid)"
+	    LogDbg "Waking up $1 (PID=$$, Main PID=$MainPID, sleep PID=$pid)"
 	    kill $pid
 	else
-	    LogDbg "No need to wakeup $1 (Main PID=$MainPID), already active"
+	    LogDbg "No need to wakeup $1 (PID=$$, Main PID=$MainPID), already active"
 	fi
     else
 	LogWarn "Instance $1 is not running ?"
@@ -866,6 +866,7 @@ LogNote "Starting $Prg on ${Conf['path']} ================"
 LogInfo "Watch interval is ${Conf['sleep']}s"
 LogInfo "FindWriter will use $EoW, wDelay=$wDelay"
 test -v Conf['shell'] && LogInfo "Commands will be processed with '$Shell'"
+LogDbg "Debug logs are active"
 cd "${Conf['path']}"
 systemd-notify --pid=$$ --ready	# Notify the end of our startup phase
 
@@ -988,7 +989,7 @@ do
     Mod=$(mTime "${Conf['path']}/")
     [[ "$Mod" =~ ^[0-9]+$ ]] || { LogDbg "WARNING: Mod='$Mod' !!"; Mod=$LastMod; }
     if [ $Mod -eq $LastMod ]; then
-	LogDbg "Mod = LastMod='$(hTime "$Mod")'"
+	LogDbg "Mod = LastMod = '$(hTime "$Mod")'"
     elif [ $Mod -gt $LastMod ]; then
 	LogDbg "Mod='$(hTime "$Mod") > LastMod='$(hTime "$LastMod")'"
     else
@@ -1200,7 +1201,11 @@ do
 
 		test "$Signal" && break
 	    done #  } Loop on matching files
-	    LogDbg "Done with $Files"
+	    if [ "$Files" ]; then
+		LogDbg "Done with $Files"
+	    else
+		LogDbg "No '$ft' file to process"
+	    fi
 
 	    test "$Signal" && break
 	done #	} Loop on all 'rules' members

@@ -1,0 +1,41 @@
+#!/bin/bash
+#
+#	dcp - Delayed copy
+#
+Prg=$(basename "$0")
+Dir=$(dirname "$0")
+
+Orig='data/orig'
+Recv='data/recv'
+Conf='conf/indird.conf'
+
+test "$2" || { echo "Usage: $Prg <file> <stream> [ <delay> ]" >&2; exit 1; }
+
+test "$Dir" = '.' || { cd "$Dir"; echo "$Prg NOTICE: working from directory $PWD" >&2; }
+test -f "$Conf" || { echo "$Prg: cannot find '$Conf' in $PWD" >&2; exit 2; }
+
+file="$1"
+[[ "$1" =~ / ]] && { echo "$Prg NOTICE: discarding directory from '$1'" >&2; file=$(basename "$1"); }
+orig="$Orig/$file"
+test -s "$orig" || { echo "$Prg: cannot find file '$orig'"; exit 3; }
+
+strm="$2"
+val=$(<"$Conf" sed '/^#/d' | jq ".$strm.sleep") || { echo "$Prg: aborting as '$Conf' is not valid JSON" >&2; exit 3; }
+test "$val" = 'null' && { echo "$Prg: no stream '$strm' found in $Conf" >&2; exit 3; }
+
+if [ "$3" ]; then
+    wdel="$3"
+else
+    # Compute write-delay in 1/10th of a second
+    wdel=$((($RANDOM * 20) / 32768))	# Maximum 20 = 2.0 s
+    int=$(($wdel / 10))
+    dec=$(($wdel - ($int*10)))
+    wdel="$int.$dec"
+fi
+Dest="$Recv/$strm"
+echo -n "Copying '$orig' to '$Dest' in $wdel seconds... " >&2
+test -d "$Dest/.ok" || mkdir -p "$Dest/.ok"
+cp "$orig" "$Dest"
+sleep $wdel
+>"$Dest/.ok/$file"
+echo "done." >&2
