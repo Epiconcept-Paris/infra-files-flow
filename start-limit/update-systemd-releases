@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+#	update-systemd-releases - Gather current systemd release for each supported Debian version
+#
+Prg=$(basename "$0")
+cd "$(dirname "$0")"
+
+if tty <&1 >/dev/null; then
+    Bold=$(tput bold)
+    Norm=$(tput sgr0)
+fi
+
+# Join lines on stdin with separator $1
+lJoin()
+{
+    sed ':a; N; $!ba; s/\n/'"$1/g"
+}
+
+# Echo arguments ($*) in bold (if output to TTY)
+Bold()
+{
+    #global Bold Norm
+    echo "$Bold$*$Norm" >&2
+}
+
+gc='../.git/config'
+gt=$(sed -nr 's;^[ \t]*url = https://([^@]+)@github.com.*$;\1;p' $gc | head -1)
+test "$gt" -a "$gt" != 'git' || { echo "$Prg: cannot find a git token in $gc" >&2; exit 2; }
+gr='Epiconcept-Paris/infra-docker-ansible'
+rel='systemd-releases'
+test -x ansdock/deploy || {
+    Bold "Installing ansdock" >&2
+    git clone "https://$gt@github.com/$gr" ansdock
+    rmd='y'
+}
+test "$(ansdock/build 2>/dev/null)" || {
+    Bold "Building docker images" >&2
+    rmi='y'
+    ansdock/build all
+}
+ec=$(ansdock/deploy -qi)	# Existing containers
+
+sdv=$(ansdock/deploy -c 2>/dev/null | awk '$1 ~ /[0-9]+/{print $1}')	# Supported Debian versions
+dvn=$(echo -n "$sdv" | tr '\n' ',')
+Bold "Creating containers for Debian $dvn" >&2
+ansdock/deploy -c$dvn
+nc=$(ansdock/deploy -qi)
+test "$ec" && nc=$(echo "$nc" | grep -Ev "^$(echo -n "$ec" | tr '\n' '|')")
+test "$Dbg" && echo "ec=[$ec], nc=[$nc]" >&2
+
+Bold "Extracting systemd release from containers" >&2
+dv=/etc/debian_version
+for c in $nc; do
+    echo "$c" >&2
+    ssh "$c" sh -c "\"echo \\\"\$(debinfo -f '%n-%v\n'| grep '^systemd-[0-9]')\\t\\t\$(cat $dv)\\\"\""
+done | sed -r 's/^systemd-([^-]+)-([0-9]+)[+~]deb([0-9]+)u([0-9]+)\t+(.*)$/\1\t\2\tdeb \3\tu\4\t\5/' >$rel
+
+ncn=$(echo "$nc" | sed "s/^$(id -un)0*//" | lJoin ',')
+ansdock/deploy -s$ncn -r$ncn
+
+test "$rmi" && { Bold "Removing docker images"; ansdock/build rm; }
+test "$rmd" && { Bold "Removing the 'ansdock' directory"; rm -rf ansdock; }
+exit 0
