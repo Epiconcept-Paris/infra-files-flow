@@ -1,0 +1,27 @@
+systemd-232/src/core/dbus-service.c:80:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-232/src/core/dbus-unit.c:761:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-232/src/core/dbus-unit.c:785:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-service.c:138:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:670:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-241/src/core/dbus-unit.c:701:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:702:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-241/src/core/dbus-unit.c:1570:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-241/src/shared/bus-unit-util.c:1553:        if (STR_IN_SET(field, "JobTimeoutSec", "JobRunningTimeoutSec", "StartLimitIntervalSec"))
+systemd-257.9/src/core/dbus-service.c:408:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:929:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-257.9/src/core/dbus-unit.c:1035:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:1036:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-257.9/src/core/dbus-unit.c:2260:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-257.9/src/shared/bus-unit-util.c:2698:                              "StartLimitIntervalSec"))
+systemd-stable-247.3/src/core/dbus-service.c:150:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:912:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-stable-247.3/src/core/dbus-unit.c:1038:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:1039:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-247.3/src/core/dbus-unit.c:2071:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-stable-247.3/src/shared/bus-unit-util.c:2147:                              "StartLimitIntervalSec"))
+systemd-stable-252.39/src/core/dbus-service.c:284:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:929:        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+systemd-stable-252.39/src/core/dbus-unit.c:1029:        SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:1030:        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_ratelimit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+systemd-stable-252.39/src/core/dbus-unit.c:2164:        if (streq(name, "StartLimitIntervalUSec"))
+systemd-stable-252.39/src/shared/bus-unit-util.c:2470:                              "StartLimitIntervalSec"))

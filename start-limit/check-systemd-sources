@@ -53,4 +53,5 @@ do
     cd ..
 done
 echo "Look for StartLimitInter"
-find systemd-* -type f -print0 | sort -z | xargs -0 grep '[^t]StartLimitInter' >../StartLimitInter
+find systemd-* -type f -print0 | sort -z | xargs -0 grep -n '[^t]StartLimitInter' >../StartLimitInter
+grep '\.c:' ../StartLimitInter >../StartLimitInter_C
