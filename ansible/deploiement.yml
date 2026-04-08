@@ -13,14 +13,7 @@
       register: installed
       with_items: 
         - jq
-#        - yaml2json
-        - yq
-
-    - name: test de la bonne version de yq (mikefarah)
-      shell:
-        cmd: "yq --version | grep mikefarah"
-      failed_when: version.rc not in [0]
-      register: version
+        - yaml2json
 
 
     - name: test des chemins nécessaires
@@ -45,7 +38,7 @@
         state: directory
 
     - name: extraction configuration
-      shell: "yq -o=json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
+      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
       changed_when: False
       with_items: 
         - procom1
