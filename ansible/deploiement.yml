@@ -37,21 +37,48 @@
         path: "{{ tmpconffile }}"
         state: directory
 
-    - name: extraction configuration
-      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
-      changed_when: False
-      with_items: 
-        - procom1
-        - profntd1
-        - profnte1
-        - prefnt2
-        - profntj1
-        - profntr1
-        - profnts1
-        - procom3
-      register: out
+#    - name: extraction configuration
+#      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
+#      changed_when: False
+#      with_items: 
+#        - procom1
+#        - profntd1
+#        - profnte1
+#        - prefnt2
+#        - profntj1
+#        - profntr1
+#        - profnts1
+#        - procom3
+#      register: out
     #- debug: var=out
-      
+ 
+    - name: Extraction configuration en pur Ansible
+      vars:
+        hosts_list:
+          - procom1
+          - profntd1
+          - profnte1
+          - prefnt2
+          - profntj1
+          - profntr1
+          - profnts1
+          - procom3
+      block:
+        - name: Charger le YAML complet
+          ansible.builtin.slurp:
+            src: "{{ path_repo_infra_data_misc }}/indird.yml"
+          register: indird_yaml_raw
+
+        - name: Convertir YAML en dict Ansible
+          set_fact:
+            indird_data: "{{ indird_yaml_raw.content | b64decode | from_yaml }}"
+
+        - name: Écrire chaque conf en JSON
+          ansible.builtin.copy:
+            dest: "{{ tmpconffile }}{{ item }}"
+            content: "{{ indird_data.hosts[item].confs | to_nice_json }}"
+          loop: "{{ hosts_list }}"     
+ 
     - name: copy procom1 conf for procom3 and satcom1 (prepare transition)
       copy: 
         src: "{{tmpconffile}}procom1"
