@@ -67,7 +67,6 @@
           - profntj1
           - profntr1
           - profnts1
-          - procom3
       block:
         - name: Charger le YAML complet
           ansible.builtin.slurp:
