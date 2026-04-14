@@ -57,32 +57,39 @@
         - "satcom1"
  
 # intéressant mais ça casse tout l'ordre donc à voir plus tard
-#    - name: Extraction configuration en pur Ansible
-#      vars:
-#        hosts_list:
-#          - procom1
-#          - profntd1
-#          - profnte1
-#          - prefnt2
-#          - profntj1
-#          - profntr1
-#          - profnts1
-#          - procom3
-#      block:
-#        - name: Charger le YAML complet
-#          ansible.builtin.slurp:
-#            src: "{{ path_repo_infra_data_misc }}/indird.yml"
-#          register: indird_yaml_raw
-#
-#        - name: Convertir YAML en dict Ansible
-#          set_fact:
-#            indird_data: "{{ indird_yaml_raw.content | b64decode | from_yaml }}"
-#
-#        - name: Écrire chaque conf en JSON
-#          ansible.builtin.copy:
-#            dest: "{{ tmpconffile }}{{ item }}"
-#            content: "{{ indird_data.hosts[item].confs | to_nice_json }}"
-#          loop: "{{ hosts_list }}"     
+    - name: Extraction configuration en pur Ansible
+      vars:
+        hosts_list:
+          - procom1
+          - profntd1
+          - profnte1
+          - prefnt2
+          - profntj1
+          - profntr1
+          - profnts1
+          - procom3
+      block:
+        - name: Charger le YAML complet
+          ansible.builtin.slurp:
+            src: "{{ path_repo_infra_data_misc }}/indird.yml"
+          register: indird_yaml_raw
+
+        - name: Convertir YAML en dict Ansible
+          set_fact:
+            indird_data: "{{ indird_yaml_raw.content | b64decode | from_yaml }}"
+
+        - name: Écrire chaque conf en JSON
+          ansible.builtin.copy:
+            dest: "{{ tmpconffile }}{{ item }}.ans"
+            content: "{{ indird_data.hosts[item].confs | to_nice_json }}"
+          loop: "{{ hosts_list }}"
+
+        - name: copy procom1 conf for satcom1
+          copy: 
+            src: "{{tmpconffile}}procom1.ans"
+            dest: "{{tmpconffile}}{{item}}.ans"
+          loop:
+            - "satcom1"
  
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
