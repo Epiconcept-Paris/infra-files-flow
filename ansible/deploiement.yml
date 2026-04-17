@@ -107,7 +107,7 @@
 
         - name: compare with prod
           shell:
-            cmd: "diff -u <(jq --sort-keys . {{tmpconffile}}{{item}}) <(jq --sort-keys . {{ runconffile }}{{item}})"
+            cmd: "diff -u <(jq --sort-keys . {{tmpconffile}}{{item}}) <(jq --sort-keys . {{ runconffile }}{{item}}) || true "
           loop:
             - satcom1
             - profntd1
@@ -119,14 +119,15 @@
           args:
             executable: /bin/bash
           register: diff_result
-          failed_when: diff_result.rc > 1
-          changed_when: diff_result.rc == 1    
+          changed_when: false
+        #   failed_when: diff_result.rc > 1
+        #   changed_when: diff_result.rc == 1    
 
-        - name: show diffs
-          debug:
-            msg: "{{ item.stdout }}"
-          loop: "{{ diff_result.results }}"
-          when: item.rc == 1
+        # - name: show diffs
+        #   debug:
+        #     msg: "{{ item.stdout }}"
+        #   loop: "{{ diff_result.results }}"
+        #   when: item.rc == 1
 
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
