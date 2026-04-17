@@ -36,25 +36,25 @@
         path: "{{ tmpconffile }}"
         state: directory
 
-    - name: extraction configuration
-      shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
-      changed_when: False
-      with_items: 
-        - procom1
-        - profntd1
-        - profnte1
-        - prefnt2
-        - profntj1
-        - profntr1
-        - profnts1
-      register: out
-    #- debug: var=out
-    - name: copy procom1 conf for satcom1
-      copy: 
-        src: "{{tmpconffile}}procom1"
-        dest: "{{tmpconffile}}{{item}}"
-      loop:
-        - "satcom1"
+    # - name: extraction configuration
+    #   shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
+    #   changed_when: False
+    #   with_items: 
+    #     - procom1
+    #     - profntd1
+    #     - profnte1
+    #     - prefnt2
+    #     - profntj1
+    #     - profntr1
+    #     - profnts1
+    #   register: out
+    # #- debug: var=out
+    # - name: copy procom1 conf for satcom1
+    #   copy: 
+    #     src: "{{tmpconffile}}procom1"
+    #     dest: "{{tmpconffile}}{{item}}"
+    #   loop:
+    #     - "satcom1"
  
 # intéressant mais ça casse tout l'ordre donc à voir plus tard
     - name: Extraction configuration en pur Ansible
@@ -79,14 +79,14 @@
 
         - name: Écrire chaque conf en JSON
           ansible.builtin.copy:
-            dest: "{{ tmpconffile }}{{ item }}.ans"
+            dest: "{{ tmpconffile }}{{ item }}"
             content: "{{ indird_data.hosts[item].confs | to_nice_json }}"
           loop: "{{ hosts_list }}"
 
         - name: copy procom1 conf for satcom1
           copy: 
-            src: "{{tmpconffile}}procom1.ans"
-            dest: "{{tmpconffile}}{{item}}.ans"
+            src: "{{tmpconffile}}procom1"
+            dest: "{{tmpconffile}}{{item}}"
           loop:
             - "satcom1"
  
