@@ -107,7 +107,7 @@
 
         - name: compare with prod
           shell:
-            cmd: "diff {{tmpconffile}}{{item}} {{ runconffile }}{{item}}"
+            cmd: "diff <(jq --sort-keys . {{tmpconffile}}{{item}}) <(jq --sort-keys . {{ runconffile }}{{item}})"
           loop:
             - satcom1
             - profntd1
