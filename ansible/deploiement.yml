@@ -67,6 +67,8 @@
           - profntj1
           - profntr1
           - profnts1
+
+
       block:
         - name: Charger le YAML complet
           ansible.builtin.slurp:
@@ -90,6 +92,35 @@
           loop:
             - "satcom1"
  
+        - name: fetch running conf
+          shell:
+            cmd: "scp {{ item }}:/etc/indird.conf {{ runconffile }}{{item}}"
+          become: true
+          loop:
+            - satcom1
+            - profntd1
+            - profnte1
+            - prefnt2
+            - profntj1
+            - profntr1
+            - profnts1  
+
+
+        - name: compare with prod
+          shell:
+            cmd: "diff {{tmpconffile}}{{item}} {{ runconffile }}{{item}}"
+          become: true
+          loop:
+            - satcom1
+            - profntd1
+            - profnte1
+            - prefnt2
+            - profntj1
+            - profntr1
+            - profnts1  
+
+
+
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
 - hosts: satcom1 profntd1 profnte1 prefnt2 profntj1 profntr1 profnts1 #procom1 procom3
