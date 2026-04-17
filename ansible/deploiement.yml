@@ -95,7 +95,6 @@
         - name: fetch running conf
           shell:
             cmd: "scp {{ item }}:/etc/indird.conf {{ runconffile }}{{item}}"
-          become: true
           loop:
             - satcom1
             - profntd1
@@ -109,7 +108,6 @@
         - name: compare with prod
           shell:
             cmd: "diff {{tmpconffile}}{{item}} {{ runconffile }}{{item}}"
-          become: true
           loop:
             - satcom1
             - profntd1
