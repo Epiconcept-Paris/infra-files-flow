@@ -116,6 +116,8 @@
             - profntj1
             - profntr1
             - profnts1  
+          args:
+            executable: /bin/bash
 
 
 
