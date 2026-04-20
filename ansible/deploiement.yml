@@ -138,7 +138,7 @@
             echo "-----------------------------------------"
             echo "Différence trouvée pour : {{ item.item }}"
             echo "-----------------------------------------"
-            printf "%b\n" "{{ item.stdout | regex_replace('"', '\\"') }}"
+            printf "%b\n" "{{ item.stdout | replace('"', '\\"') }}"
           loop: "{{ diff_results.results }}"
           when: item.rc == 1
           changed_when: false
