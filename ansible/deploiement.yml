@@ -135,7 +135,7 @@
         
         - name: Affichage des différences trouvées
           shell: 
-            cmd: printf "%b\n  {{ item.stdout | replace('"', '\\"') }}"
+            cmd: "cat /tmp/diff_indird_{{item}}"
           loop: "{{ diff_results.results }}"
           when: item.rc == 1
           changed_when: false
