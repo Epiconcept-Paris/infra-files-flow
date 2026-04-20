@@ -118,10 +118,10 @@
             - profnts1  
           args:
             executable: /bin/bash
-          register: diff_result
+          register: diff_results
         #   changed_when: false
-          failed_when: diff_result.rc > 1
-          changed_when: diff_result.rc == 1    
+          failed_when: diff_results.rc > 1
+          changed_when: diff_results.rc == 1    
 
         - name: Affichage des différences trouvées
           debug:
