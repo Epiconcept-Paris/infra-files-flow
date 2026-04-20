@@ -107,7 +107,7 @@
 
         - name: compare with prod
           shell:
-            cmd: "diff -u <(jq --sort-keys . {{tmpconffile}}{{item}}) <(jq --sort-keys . {{ runconffile }}{{item}}) > /tmp/diff_indird_{{item}} || true "
+            cmd: "diff -u <(jq --sort-keys . {{tmpconffile}}{{item}}) <(jq --sort-keys . {{ runconffile }}{{item}}) > /tmp/diff_indird_{{item}} "
           loop:
             - satcom1
             - profntd1
@@ -123,23 +123,6 @@
           failed_when: diff_result.rc > 1
           changed_when: diff_result.rc == 1    
 
-        - name: show diffs
-          shell:
-            cmd: "cat /tmp/diff_indird_{{ item }}"
-          register: result
-          loop:
-            - satcom1
-            - profntd1
-            - profnte1
-            - prefnt2
-            - profntj1
-            - profntr1
-            - profnts1  
-          
-
-        - name: display content
-          debug:
-            var: result.stdout
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
