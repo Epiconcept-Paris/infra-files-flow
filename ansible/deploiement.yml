@@ -137,7 +137,7 @@
           shell: 
             cmd: "cat /tmp/diff_indird_{{item}}"
           loop: "{{ diff_results.results }}"
-          when: item.rc == 1
+          when: diff_results.rc == 1
           changed_when: false
 
 
