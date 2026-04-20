@@ -123,16 +123,11 @@
           failed_when: diff_results.rc > 1
           changed_when: diff_results.rc == 1    
 
-        # - name: Affichage des différences trouvées
-        #   debug:
-        #     msg: |
-        #       Différence trouvée pour : {{ item.item }}
-        #       -----------------------------------------
-        #       {{ item.stdout_lines | join ('\n') }}
-        #   loop: "{{ diff_results.results }}"
-        #   when: item.rc == 1
+        - name: debug diff_results  
+          debug: 
+            var: diff_results
 
-        
+       
         - name: Affichage des différences trouvées
           shell: 
             cmd: "cat /tmp/diff_indird_{{item}}"
