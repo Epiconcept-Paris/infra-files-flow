@@ -125,8 +125,15 @@
 
         - name: debug diff_results  
           debug: 
-            var: diff_results
-
+            var: "lookup('file', '/tmp/diff_indird_{{item}}' )"
+          loop: 
+            - satcom1
+            - profntd1
+            - profnte1
+            - prefnt2
+            - profntj1
+            - profntr1
+            - profnts1  
        
         - name: Affichage des différences trouvées
           shell: 
@@ -140,7 +147,6 @@
             - profntr1
             - profnts1  
 #          when: diff_results.results.rc == 1
-          changed_when: false
 
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
