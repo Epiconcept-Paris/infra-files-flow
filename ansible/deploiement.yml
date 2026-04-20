@@ -126,6 +126,7 @@
         - name: show diffs
           shell:
             cmd: "cat /tmp/diff_indird_{{ item }}"
+          register: result
           loop:
             - satcom1
             - profntd1
@@ -135,6 +136,10 @@
             - profntr1
             - profnts1  
           
+
+        - name: display content
+          debug:
+            var: result
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
