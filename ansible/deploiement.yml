@@ -134,11 +134,8 @@
 
         
         - name: Affichage des différences trouvées
-          shell: |
-            echo "-----------------------------------------"
-            echo "Différence trouvée pour : {{ item.item }}"
-            echo "-----------------------------------------"
-            printf "%b\n" "{{ item.stdout | replace('"', '\\"') }}"
+          shell: 
+            cmd: printf "%b\n  {{ item.stdout | replace('"', '\\"') }}"
           loop: "{{ diff_results.results }}"
           when: item.rc == 1
           changed_when: false
