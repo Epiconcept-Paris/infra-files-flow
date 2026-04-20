@@ -139,7 +139,7 @@
 
         - name: display content
           debug:
-            var: result
+            var: result.stdout
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
