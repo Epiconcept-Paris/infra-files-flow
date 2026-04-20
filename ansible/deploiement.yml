@@ -128,7 +128,7 @@
             msg: |
               Différence trouvée pour : {{ item.item }}
               -----------------------------------------
-              {{ item.stdout_lines }}
+              {{ item.stdout_lines | join ('\n') }}
           loop: "{{ diff_results.results }}"
           when: item.rc == 1
 
