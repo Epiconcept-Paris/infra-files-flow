@@ -159,7 +159,7 @@
 
         - name: Exécuter la commande sur chaque fichier
           shell:
-            cmd: "yq -o json {{ item.path }} > {{ tmpconffolder }}{{item.path | basename}}
+            cmd: "yq -o json {{ item.path }} > {{ tmpconffolder }}{{item.path | basename}}"
           loop: "{{ fichiers_trouves.files }}"
 
 
