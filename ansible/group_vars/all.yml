@@ -1,6 +1,8 @@
 ---
 
 tmpconffile: "{{ ansible_env.HOME }}/.tmp/infra-files-flow_"
+tmpconffolder: "{{ ansible_env.HOME }}/.tmp/flows/"
+
 
 path_repo_base: "{{ playbook_dir }}/../../"
 path_repo_infra_data_misc: "{{ path_repo_base }}/infra-data-misc"

@@ -36,6 +36,12 @@
         path: "{{ tmpconffile }}"
         state: directory
 
+    - file:
+        path: "{{ tmpconffolder }}"
+        state: directory
+
+
+
     # - name: extraction configuration
     #   shell: "yaml2json {{ path_repo_infra_data_misc }}/indird.yml | jq .hosts.{{ item }}.confs > {{ tmpconffile }}{{ item }}"
     #   changed_when: False
@@ -79,10 +85,11 @@
           set_fact:
             indird_data: "{{ indird_yaml_raw.content | b64decode | from_yaml }}"
 
+        #tentative de forcer le sort_keys car le json final est là aussi changé à chaque itération
         - name: Écrire chaque conf en JSON
           ansible.builtin.copy:
             dest: "{{ tmpconffile }}{{ item }}"
-            content: "{{ indird_data.hosts[item].confs | to_nice_json }}"
+            content: "{{ indird_data.hosts[item].confs | to_nice_json(sort_keys=true) }}"
           loop: "{{ hosts_list }}"
 
         - name: copy procom1 conf for satcom1
@@ -134,7 +141,29 @@
             - profntj1
             - profntr1
             - profnts1  
-       
+
+    - name: generate json each flows
+      block:
+        - name: read all files
+          ansible.builtin.find:
+            paths:
+              - "{{ path_repo_infra_data_misc }}/indird.d/satcom1"
+              - "{{ path_repo_infra_data_misc }}/indird.d/prefnt2"
+              - "{{ path_repo_infra_data_misc }}/indird.d/profnts1"
+              - "{{ path_repo_infra_data_misc }}/indird.d/profntj1"
+              - "{{ path_repo_infra_data_misc }}/indird.d/profnte1"
+              - "{{ path_repo_infra_data_misc }}/indird.d/profntr1"
+              - "{{ path_repo_infra_data_misc }}/indird.d/profntd1"
+            file_type: file
+          register: fichiers_trouves
+
+        - name: Exécuter la commande sur chaque fichier
+          shell:
+            cmd: "yq -o=json {{ item.path }} > {{ tmpconffolder }}{{item | basename}}
+          loop: "{{ fichiers_trouves.files }}"
+
+
+
 
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
