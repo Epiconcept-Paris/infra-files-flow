@@ -384,7 +384,7 @@ ChkConf()
 	done
 	# method has fixed values
 	val="${Conf["filetypes.$key.method"]}"
-	[[ "$val" =~ ^(fileglob|regexp)$ ]] || ConfErr "filetypes.$key.method has invalid value \"$val\""
+	[[ "$val" =~ ^(fileglob|regexp|vregexp)$ ]] || ConfErr "filetypes.$key.method has invalid value \"$val\""
 	# optional orderby has fixed values
 	if [ -v Conf["filetypes.$key.orderby"] ]; then
 	    val="${Conf["filetypes.$key.orderby"]}"
@@ -1016,9 +1016,12 @@ do
 	    if [ "${Conf["filetypes.$ft.method"]}" = 'fileglob' ]; then
 		met='fglob'
 		test "$ord" != 'mtime' && Files="$pat" || Files=$(ls -tr $pat 2>/dev/null)
-	    else	# regexp
+	    elif [ "${Conf["filetypes.$ft.method"]}" = 'regexp' ]; then
 		test "$ord" = 'mtime' && opt=' -tr' || opt=''
 		Files=$(ls$opt | grep "$pat")
+	    else	# vregexp
+		test "$ord" = 'mtime' && opt=' -tr' || opt=''
+		Files=$(ls$opt | grep -v "$pat")
 	    fi
 
 	    #   Loop on matching files {
