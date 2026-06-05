@@ -1,0 +1,48 @@
+# Conteneur de test indird
+
+Micro-infrastructure de test pour le déploiement d'indird via le playbook `ansible/deploiement.yml`.
+Ansible est joué depuis le poste de travail, ce conteneur est la cible.
+
+## Contenu
+
+- `Dockerfile` — image Debian 12 avec systemd, SSH et les outils nécessaires
+- `indird.conf` — configuration extraite d'un serveur de production (`/etc/indird.conf`)
+- `hosts` — inventaire Ansible utilisant le connecteur `community.docker.docker`
+- `docker-compose.yml` — lance le conteneur en mode privilégié (requis pour systemd)
+
+## 1. Lancer le conteneur
+
+Depuis ce dossier :
+
+```bash
+# Docker récent
+docker compose up -d --build
+
+# Ancien Docker
+docker-compose up -d --build
+```
+
+## 2. Déployer indird
+
+`indird` est ajouté aux cibles du second play de `deploiement.yml`. L'inventaire `hosts` utilise le connecteur `community.docker.docker` — pas besoin de SSH.
+
+```bash
+cedric@Mnementh6 ~/www/e/infra-files-flow/ansible (mod - master) $ ansible-playbook -i /home/cedric/www/e/infra-files-flow/ansible/docker/indird/hosts deploiement.yml -t install
+```
+
+## 3. Tester
+
+Se connecter dans le conteneur et déposer des fichiers dans le répertoire surveillé :
+
+```bash
+docker exec -it indird bash
+cp <fichier> /space/home/GEDLAD91/KS/L1L2/LAD/
+```
+
+Vérifier le traitement dans les logs et les répertoires `done` / `fail` :
+
+```bash
+tail -f /var/log/indird-GEDLAD91_KS_L1L2_LAD.log
+ls /space/home/GEDLAD91/done/KS/L1L2/LAD/
+ls /space/home/GEDLAD91/fail/KS/L1L2/LAD/
+```

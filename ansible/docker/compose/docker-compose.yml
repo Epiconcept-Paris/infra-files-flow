@@ -9,3 +9,4 @@ services:
   destination:
     build: ../build/destination
     container_name: destination
+

@@ -1,0 +1,2 @@
+[indird]
+indird ansible_connection=community.docker.docker

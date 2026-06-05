@@ -1,0 +1,12 @@
+version: '2'
+
+services:
+
+  indird:
+    build: .
+    container_name: indird
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    ports:
+      - "2222:22"
