@@ -2,6 +2,7 @@
 
 Micro-infrastructure de test pour le déploiement d'indird via le playbook `ansible/deploiement.yml`.
 Ansible est joué depuis le poste de travail, ce conteneur est la cible.
+Le but est d'améliorer la prise en compte de patterns de fichiers à traiter.
 
 ## Contenu
 
@@ -32,7 +33,12 @@ cedric@Mnementh6 ~/www/e/infra-files-flow/ansible (mod - master) $ ansible-playb
 
 ## 3. Tester
 
-Se connecter dans le conteneur et déposer des fichiers dans le répertoire surveillé :
+Se connecter dans le conteneur, lancer le service
+```bash
+service indird@GEDLAD91_KS_L1L2_LAD start
+```
+
+et déposer des fichiers dans le répertoire surveillé :
 
 ```bash
 docker exec -it indird bash
@@ -46,3 +52,5 @@ tail -f /var/log/indird-GEDLAD91_KS_L1L2_LAD.log
 ls /space/home/GEDLAD91/done/KS/L1L2/LAD/
 ls /space/home/GEDLAD91/fail/KS/L1L2/LAD/
 ```
+
+Les transferts seront en erreur (pas de cible, peut être même pas rsync installé), mais cela permet de valider le bon traitement en l'état)
