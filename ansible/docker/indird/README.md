@@ -43,6 +43,9 @@ et déposer des fichiers dans le répertoire surveillé :
 ```bash
 docker exec -it indird bash
 cp <fichier> /space/home/GEDLAD91/KS/L1L2/LAD/
+
+/space/home/GEDLAD91/KS/L1L2/LAD# for i in {1..100}; do touch fichierL1L2-${i}.hl7; done
+/space/home/GEDLAD91/KS/L1L2/LAD# for i in {1..100}; do touch fichierL1L2-V2-${i}.hl7; done
 ```
 
 Vérifier le traitement dans les logs et les répertoires `done` / `fail` :
