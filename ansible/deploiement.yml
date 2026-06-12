@@ -143,6 +143,7 @@
             - profnts1  
 
     - name: generate json each flows
+      when: not ansible_check_mode 
       block:
         - name: read all files
           ansible.builtin.find:
@@ -161,7 +162,7 @@
           shell:
             cmd: "yq -o json {{ item.path }} > {{ tmpconffolder }}{{item.path | basename}}"
           loop: "{{ fichiers_trouves.files }}"
-          when: not ansible_check_mode 
+
 
 
 
