@@ -231,7 +231,7 @@
     - name: création dossier indird.d
       tags: ['install', 'reconf']
       file:
-        path: {{ subconfdir }}
+        path: "{{ subconfdir }}"
         state: directory
       become: true
 
