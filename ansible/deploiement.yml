@@ -173,6 +173,7 @@
 
   vars:
     conffile: /etc/indird.conf
+    subconfdir: /etc/indird.d
     srcdir: "{{ playbook_dir }}/../indird"
     bindir: /usr/local/bin
     systemddir: /etc/systemd/system
@@ -227,6 +228,42 @@
         mode: 0755
       become: True
 
+    - name: création dossier indird.d
+      tags: ['install', 'reconf']
+      file:
+        path: {{ subconfdir }}
+        state: directory
+      become: true
+
+    - name: read all file flows
+      delegate_to: localhost
+      tags: ['reconf']
+      ansible.builtin.find:
+        paths:
+          - "{{iem}}"
+        file_type: file
+      register: fichiers_trouves
+      loop:
+        - "{{ path_repo_infra_data_misc }}/indird.d/satcom1"
+        - "{{ path_repo_infra_data_misc }}/indird.d/prefnt2"
+        - "{{ path_repo_infra_data_misc }}/indird.d/profnts1"
+        - "{{ path_repo_infra_data_misc }}/indird.d/profntj1"
+        - "{{ path_repo_infra_data_misc }}/indird.d/profnte1"
+        - "{{ path_repo_infra_data_misc }}/indird.d/profntr1"
+        - "{{ path_repo_infra_data_misc }}/indird.d/profntd1"
+
+    - name: Exécuter la commande sur chaque fichier
+      tags: ['reconf']
+      file:
+        path: "{{subconfdir}}/{{item.path | basename | splitext | first}}"
+        state: directory
+      loop: "{{ results.fichiers_trouves.files }}"
+      become: true
+      delegate_to: "{{item.path | basename | splitext | last}}"
+
+
+
+
     - name: dépot configuration
       tags: ['reconf']
       copy:
@@ -235,6 +272,7 @@
         mode: 0644
       become: True
       register: chgconf
+
 
     - name: dépot services
       tags: ['install']
