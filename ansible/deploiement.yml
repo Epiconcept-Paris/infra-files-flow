@@ -161,14 +161,13 @@
           shell:
             cmd: "yq -o json {{ item.path }} > {{ tmpconffolder }}{{item.path | basename}}"
           loop: "{{ fichiers_trouves.files }}"
-
-
+          check_mode: false
 
 
 
 #TODO: duplication entre items de "extraction configuration" et hosts du playbook suivant (idée, on génère pour tous les serveurs)
 
-- hosts: satcom1 profntd1 profnte1 prefnt2 profntj1 profntr1 profnts1 indird
+- hosts: satcom1 profntd1 profnte1 prefnt2 profntj1 profntr1 profnts1
   gather_facts: True
 
   vars:
