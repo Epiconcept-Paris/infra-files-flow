@@ -161,7 +161,7 @@
           shell:
             cmd: "yq -o json {{ item.path }} > {{ tmpconffolder }}{{item.path | basename}}"
           loop: "{{ fichiers_trouves.files }}"
-          check_mode: false
+          when: not ansible_check_mode 
 
 
 
