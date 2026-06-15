@@ -281,6 +281,16 @@
       register: chgconf
 
 
+    - name: dépot configurations dispersée satcom1
+      tags: ['reconf']
+      copy:
+        src: "{{ tmpconffile }}{{ ansible_hostname }}"
+        dest: "{{ conffile }}"
+        mode: 0644
+      become: True
+      register: chgconf
+
+
     - name: dépot services
       tags: ['install']
       copy: 
