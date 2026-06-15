@@ -254,6 +254,7 @@
 
 
     - name: debug fichiers_trouves
+      tags: ['reconf']
       debug:
         var: fichiers_trouves
 
