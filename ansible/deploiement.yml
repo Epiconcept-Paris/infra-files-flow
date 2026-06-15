@@ -240,7 +240,7 @@
       tags: ['reconf']
       ansible.builtin.find:
         paths:
-          - "{{iem}}"
+          - "{{item}}"
         file_type: file
       register: fichiers_trouves
       loop:
@@ -252,7 +252,7 @@
         - "{{ path_repo_infra_data_misc }}/indird.d/profntr1"
         - "{{ path_repo_infra_data_misc }}/indird.d/profntd1"
 
-    - name: Exécuter la commande sur chaque fichier
+    - name: create all subfolders
       tags: ['reconf']
       file:
         path: "{{subconfdir}}/{{item.path | basename | splitext | first}}"
