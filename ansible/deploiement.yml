@@ -255,19 +255,20 @@
 
     - name: debug fichiers_trouves
       tags: ['reconf']
-      debug:
-        var: fichiers_trouves
+      set_fact:
+        tous_fichiers: "{{ fichiers_trouves.results | map(attribute='files') | flatten | map(attribute='path') | list }}"
 
     - name: create all subfolders
       tags: ['reconf']
       file:
-        path: "{{subconfdir}}/{{item.path | basename | splitext | first}}"
+        path: "{{subconfdir}}/{{ item | basename | split('.') | first }}"
         state: directory
-      loop: "{{ fichiers_trouves.results.files }}"
+        mode: '0755'
+      loop: "{{ tous_fichiers }}"
+      vars:
+        target_host: "{{ item | basename | split('.') | last }}"
       become: true
-      delegate_to: "{{item.path | basename | splitext | last}}"
-
-
+      delegate_to: "target_host"
 
 
     - name: dépot configuration
