@@ -252,12 +252,17 @@
         - "{{ path_repo_infra_data_misc }}/indird.d/profntr1"
         - "{{ path_repo_infra_data_misc }}/indird.d/profntd1"
 
+
+    - name: debug fichiers_trouves
+      debug:
+        var: fichiers_trouves
+
     - name: create all subfolders
       tags: ['reconf']
       file:
         path: "{{subconfdir}}/{{item.path | basename | splitext | first}}"
         state: directory
-      loop: "{{ results.fichiers_trouves.files }}"
+      loop: "{{ fichiers_trouves.results.files }}"
       become: true
       delegate_to: "{{item.path | basename | splitext | last}}"
 
