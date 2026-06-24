@@ -251,8 +251,8 @@
       include_role:
         name: ar-deploy-conffiles
       vars:
-        filename: "{{item.path | basename | splitext | first }}"
-        server: "{{item.path | basename | splitext | last }}"
+        flowname: "{{item.path | basename | split('.') | first }}"
+        server: "{{item.path | basename | split('.') | last }}"
       loop: "{{fichiers_json.files}}"
 
 

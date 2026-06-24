@@ -3,7 +3,7 @@
 - name: debug filename
   tags: ['subconf']
   debug:
-    var: filename
+    var: flowname
 
 - name: debug server
   tags: ['subconf']
@@ -11,13 +11,14 @@
     var: server
 
 
-# - name: create dirs in server
-#   file:
-#     status: directory
-#     path: "/etc/indird.d/{{item | basename | splitext | first }}"
-#   loop: "{{fichier_trouvés}}.files"
-#   become: true
-#   delegate_to: "{{server}}"
+- name: create dirs in server
+  tags: ['subconf']
+  file:
+    status: directory
+    path: "/etc/indird.d/{{flowname}}"
+  become: true
+  delegate_to: "{{server}}"
+  when: "inventory_hostname == {{server}}"
 
 
 # - name: deploy conf files
