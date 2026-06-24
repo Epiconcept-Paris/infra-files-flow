@@ -15,6 +15,13 @@
   when: inventory_hostname == server
 
 
-# - name: deploy conf files
-#   copy:
-#     src: "{{ tmpconffolder }}{{item.path | basename}}"
+- name: deploy conf files
+  copy:
+    src: "{{item.path}}"
+    dest: "/etc/indird.d/{{flowname}}/config.json"
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  delegate_to: "{{server}}"
+  when: inventory_hostname == server
