@@ -3,18 +3,12 @@
 - name: debug filename
   tags: ['subconf']
   debug:
-    var: flowname
-
-- name: debug server
-  tags: ['subconf']
-  debug:
-    var: server
-
+    var: item
 
 - name: create dirs in server
   tags: ['subconf']
   file:
-    status: directory
+    state: directory
     path: "/etc/indird.d/{{flowname}}"
   become: true
   delegate_to: "{{server}}"

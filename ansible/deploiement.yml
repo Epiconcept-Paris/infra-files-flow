@@ -254,6 +254,7 @@
         flowname: "{{item.path | basename | split('.') | first }}"
         server: "{{item.path | basename | split('.') | last }}"
       loop: "{{fichiers_json.files}}"
+      when: inventory_hostname == server
 
 
 
