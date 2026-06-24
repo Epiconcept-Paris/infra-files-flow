@@ -3,7 +3,7 @@
 - name: debug filename
   tags: ['subconf']
   debug:
-    var: item
+    var: item.path
 
 - name: create dirs in server
   tags: ['subconf']
