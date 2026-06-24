@@ -235,40 +235,44 @@
         state: directory
       become: true
 
+
     - name: read all file flows
       delegate_to: localhost
-      tags: ['reconf']
+      tags: ['reconf', 'subconf']
       ansible.builtin.find:
         paths:
-          - "{{item}}"
+          - "{{ tmpconffolder }}"
         file_type: file
-      register: fichiers_trouves
-      loop:
-        - "{{ path_repo_infra_data_misc }}/indird.d/satcom1"
-        - "{{ path_repo_infra_data_misc }}/indird.d/prefnt2"
-        - "{{ path_repo_infra_data_misc }}/indird.d/profnts1"
-        - "{{ path_repo_infra_data_misc }}/indird.d/profntj1"
-        - "{{ path_repo_infra_data_misc }}/indird.d/profnte1"
-        - "{{ path_repo_infra_data_misc }}/indird.d/profntr1"
-        - "{{ path_repo_infra_data_misc }}/indird.d/profntd1"
+      register: fichiers_json
 
 
-    - name: debug fichiers_trouves
-      tags: ['reconf']
-      set_fact:
-        tous_fichiers: "{{ fichiers_trouves.results | map(attribute='files') | flatten | map(attribute='path') | list }}"
-
-    - name: create all subfolders
-      tags: ['reconf']
-      file:
-        path: "{{subconfdir}}/{{ item | basename | split('.') | first }}"
-        state: directory
-        mode: '0755'
-      loop: "{{ tous_fichiers }}"
+    - name: loop on all files and create folder if needed+copy file
+      tags: ['subconf']
+      include_role:
+        name: ar-deploy-conffiles
       vars:
-        target_host: "{{ item | basename | split('.') | last }}"
-      become: true
-      delegate_to: "{{target_host}}"
+        filename: "{{item.path | basename | splitext | first }}"
+        server: "{{item.path | basename | splitext | last }}"
+      loop: "{{fichiers_json.files}}"
+
+
+
+    # - name: debug fichiers_trouves
+    #   tags: ['reconf']
+    #   set_fact:
+    #     tous_fichiers: "{{ fichiers_trouves.results | map(attribute='files') | flatten | map(attribute='path') | list }}"
+
+    # - name: create all subfolders
+    #   tags: ['reconf']
+    #   file:
+    #     path: "{{subconfdir}}/{{ item | basename | split('.') | first }}"
+    #     state: directory
+    #     mode: '0755'
+    #   loop: "{{ tous_fichiers }}"
+    #   vars:
+    #     target_host: "{{ item | basename | split('.') | last }}"
+    #   become: true
+    #   delegate_to: "{{target_host}}"
 
 
     - name: dépot configuration
