@@ -16,6 +16,7 @@
 
 
 - name: deploy conf files
+  tags: ['subconf']
   copy:
     src: "{{item.path}}"
     dest: "/etc/indird.d/{{flowname}}/config.json"
