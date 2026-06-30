@@ -247,7 +247,7 @@
 
 
     - name: loop on all files and create folder if needed+copy file
-      tags: ['subconf']
+      tags: ['reconf', 'subconf']
       include_role:
         name: ar-deploy-conffiles
       vars:

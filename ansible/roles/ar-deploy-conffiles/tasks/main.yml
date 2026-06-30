@@ -1,12 +1,12 @@
 ---
 
 - name: debug filename
-  tags: ['subconf']
+  tags: ['reconf', 'subconf']
   debug:
     var: item.path
 
 - name: create dirs in server
-  tags: ['subconf']
+  tags: ['reconf', 'subconf']
   file:
     state: directory
     path: "/etc/indird.d/{{flowname}}"
@@ -16,7 +16,7 @@
 
 
 - name: deploy conf files
-  tags: ['subconf']
+  tags: ['reconf', 'subconf']
   copy:
     src: "{{item.path}}"
     dest: "/etc/indird.d/{{flowname}}/config.json"
