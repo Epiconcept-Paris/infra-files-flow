@@ -21,8 +21,6 @@
     path: "{{ item.path }}"
   register: conf_stat
   delegate_to: localhost
-  when: inventory_hostname == server
-
 
 
 - name: deploy conf files
