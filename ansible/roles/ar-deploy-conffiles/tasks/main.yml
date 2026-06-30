@@ -15,6 +15,16 @@
   when: inventory_hostname == server
 
 
+- name: check conf files
+  tags: ['reconf', 'subconf']
+  stat:
+    path: "{{ item.path }}"
+  register: conf_stat
+  delegate_to: localhost
+  when: inventory_hostname == server
+
+
+
 - name: deploy conf files
   tags: ['reconf', 'subconf']
   copy:
@@ -24,4 +34,6 @@
     group: root
     mode: '0644'
   become: true
-  when: inventory_hostname == server
+  when: 
+    - inventory_hostname == server
+    - conf_stat.stat.size > 0
